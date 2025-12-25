@@ -1,0 +1,29 @@
+# Build
+/target/
+Cargo.lock
+
+# Environment
+.env
+
+# Uploads
+/uploads/*
+!/uploads/.gitkeep
+
+# Data
+/data/blocklist.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test artifacts
+/uploads_test/
