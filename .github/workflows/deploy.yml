@@ -1,0 +1,69 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+env:
+  DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+  JWT_SECRET: ${{ secrets.JWT_SECRET }}
+  RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+  ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      
+      - name: Build release binary
+        run: cargo build --release
+      
+      - name: Run tests
+        run: cargo test --release
+      
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: docsend-binary
+          path: target/release/docsend
+          
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Install Ansible
+        run: |
+          sudo apt update
+          sudo apt install -y ansible
+      
+      - name: Download binary artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: docsend-binary
+          path: ./artifact
+      
+      - name: Make binary executable
+        run: chmod +x ./artifact/docsend
+      
+      - name: Run Ansible deployment
+        run: |
+          cd ansible
+          ansible-playbook -i inventory.yml deploy.yml \
+            -e "docsend_binary_path=../artifact/docsend" \
+            -e "db_password=$DB_PASSWORD" \
+            -e "jwt_secret=$JWT_SECRET" \
+            -e "resend_api_key=$RESEND_API_KEY" \
+            -e "admin_password=$ADMIN_PASSWORD"
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: False
