@@ -93,6 +93,7 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         
         const token = '{{TOKEN}}';
+        const viewId = '{{VIEW_ID}}';
         const documentPath = '{{DOCUMENT_PATH}}';
         let pdfDoc = null;
         let pageNum = 1;
@@ -143,7 +144,7 @@
             fetch('/api/track', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, page: num }),
+                body: JSON.stringify({ view_id: viewId, pages_viewed: Array.from(pagesViewed) }),
             }).catch(() => {});
         }
         
@@ -159,8 +160,8 @@
         window.addEventListener('beforeunload', () => {
             const duration = Math.floor((Date.now() - startTime) / 1000);
             navigator.sendBeacon('/api/track', JSON.stringify({ 
-                token, 
-                duration,
+                view_id: viewId, 
+                duration_secs: duration,
                 pages_viewed: Array.from(pagesViewed)
             }));
         });

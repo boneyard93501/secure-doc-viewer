@@ -52,6 +52,7 @@
         .status.active, .status.success { background: #d4edda; color: #155724; }
         .status.expired, .status.failed { background: #f8d7da; color: #721c24; }
         .status.revoked { background: #fff3cd; color: #856404; }
+        .status.used { background: #e2e3e5; color: #383d41; }
         .status.one-time { background: #e7f1ff; color: #0056b3; }
         .btn { padding: 8px 16px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: 500; text-decoration: none; display: inline-block; }
         .btn-primary { background: #667eea; color: white; }
@@ -108,6 +109,7 @@
             </div>
             <div class="header-actions">
                 <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+                <button class="refresh-btn" onclick="showModal('passwordModal')" title="Change Password">👤</button>
                 <button class="logout" onclick="logout()">Logout</button>
             </div>
         </div>
@@ -245,9 +247,26 @@
         </div>
     </div>
     
+    <div class="modal" id="passwordModal">
+        <div class="modal-content">
+            <h3>Change Password</h3>
+            <div class="login-error" id="passwordError"></div>
+            <div class="login-error" id="passwordSuccess" style="background:#d4edda;color:#155724;"></div>
+            <form id="passwordForm">
+                <div class="form-group"><label>Current Password</label><input type="password" name="current_password" required></div>
+                <div class="form-group"><label>New Password</label><input type="password" name="new_password" required minlength="8"></div>
+                <div class="form-group"><label>Confirm New Password</label><input type="password" name="confirm_password" required minlength="8"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn" onclick="hideModal('passwordModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Change Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
     <script>
         const BASE_URL = window.location.origin;
-        const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
+        const AUTO_REFRESH_INTERVAL = {{REFRESH_INTERVAL_MS}};
         let token = localStorage.getItem('admin_token');
         let allViews = [], allAttempts = [], allLinks = [], documents = [];
         let autoRefreshTimer = null;
@@ -374,7 +393,8 @@
             tbody.innerHTML = links.map(link => {
                 const isExpired = link.expires_at && new Date(link.expires_at) < new Date();
                 const isOneTime = link.one_time_only;
-                let status = link.revoked ? 'revoked' : (isExpired ? 'expired' : 'active');
+                const isUsed = isOneTime && link.view_count > 0;
+                let status = link.revoked ? 'revoked' : (isExpired ? 'expired' : (isUsed ? 'used' : 'active'));
                 const url = `${BASE_URL}/d/${link.short_code}`;
                 const noteHtml = link.note ? `<span class="note" title="${link.note}">${link.note}</span>` : '-';
                 const statusHtml = isOneTime ? 
@@ -521,6 +541,59 @@
             } catch (err) {
                 console.error('Error:', err);
                 alert('Add domain error: ' + err.message);
+            }
+        });
+        
+        document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const errorDiv = document.getElementById('passwordError');
+            const successDiv = document.getElementById('passwordSuccess');
+            errorDiv.classList.remove('show');
+            successDiv.classList.remove('show');
+            
+            const currentPassword = e.target.current_password.value;
+            const newPassword = e.target.new_password.value;
+            const confirmPassword = e.target.confirm_password.value;
+            
+            if (newPassword !== confirmPassword) {
+                errorDiv.textContent = 'New passwords do not match';
+                errorDiv.classList.add('show');
+                return;
+            }
+            
+            if (newPassword.length < 8) {
+                errorDiv.textContent = 'Password must be at least 8 characters';
+                errorDiv.classList.add('show');
+                return;
+            }
+            
+            try {
+                const resp = await fetch('/api/admin/password', {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword
+                    })
+                });
+                
+                if (!resp.ok) {
+                    const data = await resp.json();
+                    errorDiv.textContent = data.error || 'Failed to change password';
+                    errorDiv.classList.add('show');
+                    return;
+                }
+                
+                successDiv.textContent = 'Password changed successfully';
+                successDiv.classList.add('show');
+                e.target.reset();
+                setTimeout(() => hideModal('passwordModal'), 1500);
+            } catch (err) {
+                errorDiv.textContent = 'Error: ' + err.message;
+                errorDiv.classList.add('show');
             }
         });
         
