@@ -103,6 +103,9 @@ async fn create_test_app(pool: PgPool) -> (Router, String) {
         logging: docsend::LoggingConfig {
             level: "info".to_string(),
         },
+        dashboard: docsend::DashboardConfig {
+            refresh_interval_secs: 30,
+        },
     };
 
     let state = TestAppState {
@@ -372,7 +375,7 @@ async fn create_test_app(pool: PgPool) -> (Router, String) {
         let short_code = generate_short_code();
         let expires_at = req.expires_in_days.map(|days| Utc::now() + Duration::days(days));
 
-        match db::create_link(&state.pool, req.document_id, &short_code, expires_at).await {
+        match db::create_link(&state.pool, req.document_id, &short_code, None, false, expires_at).await {
             Ok(link) => {
                 let url = format!("http://localhost/d/{}", short_code);
                 Json(CreateLinkResponse {

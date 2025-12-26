@@ -28,7 +28,7 @@ async fn test_access_request_workflow() {
         .expect("Failed to create document");
     println!("  1. ✓ Created document: {}", doc.name);
 
-    let link = db::create_link(pool, doc.id, "pitch123", None)
+    let link = db::create_link(pool, doc.id, "pitch123", None, false, None)
         .await
         .expect("Failed to create link");
     println!("  2. ✓ Created link: {}", link.short_code);
@@ -153,7 +153,7 @@ async fn test_link_expiration() {
 
     // Create expired link
     let expired = Utc::now() - Duration::hours(1);
-    let link = db::create_link(pool, doc.id, "expired123", Some(expired))
+    let _link = db::create_link(pool, doc.id, "expired123", None, false, Some(expired))
         .await.unwrap();
     println!("  1. ✓ Created expired link");
 
@@ -187,7 +187,7 @@ async fn test_link_revocation() {
     let doc = db::create_document(pool, "Revoke Test", "test.pdf", "/path", 1000)
         .await.unwrap();
 
-    let link = db::create_link(pool, doc.id, "revoke123", None)
+    let link = db::create_link(pool, doc.id, "revoke123", None, false, None)
         .await.unwrap();
     println!("  1. ✓ Created link");
 
@@ -224,7 +224,7 @@ async fn test_token_expiration() {
 
     let doc = db::create_document(pool, "Token Exp Test", "test.pdf", "/path", 1000)
         .await.unwrap();
-    let link = db::create_link(pool, doc.id, "tokexp123", None)
+    let link = db::create_link(pool, doc.id, "tokexp123", None, false, None)
         .await.unwrap();
 
     // Create expired token
@@ -255,7 +255,7 @@ async fn test_token_single_use() {
 
     let doc = db::create_document(pool, "Single Use Test", "test.pdf", "/path", 1000)
         .await.unwrap();
-    let link = db::create_link(pool, doc.id, "single123", None)
+    let link = db::create_link(pool, doc.id, "single123", None, false, None)
         .await.unwrap();
 
     let expires = Utc::now() + Duration::hours(1);
@@ -343,7 +343,7 @@ async fn test_document_cascade_delete() {
     // Create document with links, tokens, and views
     let doc = db::create_document(pool, "Cascade Test", "test.pdf", "/path", 1000)
         .await.unwrap();
-    let link = db::create_link(pool, doc.id, "cascade123", None)
+    let link = db::create_link(pool, doc.id, "cascade123", None, false, None)
         .await.unwrap();
     let expires = Utc::now() + Duration::hours(1);
     let token = db::create_access_token(pool, link.id, "user@corp.com", "cascadetok", expires, None, None)

@@ -97,7 +97,6 @@
         const documentPath = '{{DOCUMENT_PATH}}';
         let pdfDoc = null;
         let pageNum = 1;
-        let startTime = Date.now();
         let pagesViewed = new Set([1]);
         
         async function loadPdf() {
@@ -117,6 +116,9 @@
                 document.getElementById('nav').style.display = 'flex';
                 
                 renderPage(1);
+                
+                // Initial tracking after load
+                setTimeout(sendTrackingUpdate, 1000);
                 
             } catch (error) {
                 document.getElementById('loading').textContent = 'Error loading document: ' + error.message;
@@ -139,13 +141,6 @@
             document.getElementById('nextBtn').disabled = num >= pdfDoc.numPages;
             
             pagesViewed.add(num);
-            
-            // Track page view
-            fetch('/api/track', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ view_id: viewId, pages_viewed: Array.from(pagesViewed) }),
-            }).catch(() => {});
         }
         
         document.getElementById('prevBtn').addEventListener('click', () => {
@@ -156,14 +151,33 @@
             if (pageNum < pdfDoc.numPages) renderPage(++pageNum);
         });
         
-        // Track duration on unload
+        // Send tracking update
+        function sendTrackingUpdate() {
+            fetch('/api/track', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    view_id: viewId, 
+                    pages_viewed: Array.from(pagesViewed)
+                }),
+            }).catch(() => {});
+        }
+        
+        // Track every 10 seconds
+        setInterval(sendTrackingUpdate, 10000);
+        
+        // Track on visibility change (tab switch)
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) sendTrackingUpdate();
+        });
+        
+        // Track on unload
         window.addEventListener('beforeunload', () => {
-            const duration = Math.floor((Date.now() - startTime) / 1000);
-            navigator.sendBeacon('/api/track', JSON.stringify({ 
+            const blob = new Blob([JSON.stringify({ 
                 view_id: viewId, 
-                duration_secs: duration,
                 pages_viewed: Array.from(pagesViewed)
-            }));
+            })], { type: 'application/json' });
+            navigator.sendBeacon('/api/track', blob);
         });
         
         // Disable right-click

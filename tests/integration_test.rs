@@ -132,7 +132,7 @@ async fn test_link_crud() {
         .unwrap();
 
     // Create link without expiry
-    let link1 = db::create_link(pool, doc.id, "abc123", None)
+    let link1 = db::create_link(pool, doc.id, "abc123", None, false, None)
         .await
         .expect("Failed to create link");
     
@@ -142,7 +142,7 @@ async fn test_link_crud() {
 
     // Create link with expiry
     let expires = Utc::now() + Duration::days(7);
-    let link2 = db::create_link(pool, doc.id, "def456", Some(expires))
+    let link2 = db::create_link(pool, doc.id, "def456", None, false, Some(expires))
         .await
         .expect("Failed to create link");
     
@@ -211,7 +211,7 @@ async fn test_access_token_crud() {
     // Setup
     let doc = db::create_document(pool, "Token Test", "test.pdf", "/test.pdf", 100)
         .await.unwrap();
-    let link = db::create_link(pool, doc.id, "tok123", None)
+    let link = db::create_link(pool, doc.id, "tok123", None, false, None)
         .await.unwrap();
 
     let expires = Utc::now() + Duration::hours(1);
@@ -280,7 +280,7 @@ async fn test_view_crud() {
     // Setup
     let doc = db::create_document(pool, "View Test", "test.pdf", "/test.pdf", 100)
         .await.unwrap();
-    let link = db::create_link(pool, doc.id, "view123", None)
+    let link = db::create_link(pool, doc.id, "view123", None, false, None)
         .await.unwrap();
     let token = db::create_access_token(
         pool, link.id, "viewer@test.com", "viewtoken",
@@ -396,11 +396,11 @@ async fn test_document_stats() {
         .await.unwrap();
     
     // Active link
-    let link1 = db::create_link(pool, doc.id, "stat1", None)
+    let link1 = db::create_link(pool, doc.id, "stat1", None, false, None)
         .await.unwrap();
     
     // Expired link
-    let _link2 = db::create_link(pool, doc.id, "stat2", Some(Utc::now() - Duration::days(1)))
+    let _link2 = db::create_link(pool, doc.id, "stat2", None, false, Some(Utc::now() - Duration::days(1)))
         .await.unwrap();
 
     // Create views
@@ -449,7 +449,7 @@ async fn test_global_stats() {
     // Add data
     let doc = db::create_document(pool, "Global Test", "test.pdf", "/test.pdf", 100)
         .await.unwrap();
-    let link = db::create_link(pool, doc.id, "global1", None)
+    let link = db::create_link(pool, doc.id, "global1", None, false, None)
         .await.unwrap();
     let token = db::create_access_token(
         pool, link.id, "viewer@test.com", "globaltoken",
@@ -480,9 +480,9 @@ async fn test_list_all_links() {
     let doc2 = db::create_document(pool, "Doc 2", "doc2.pdf", "/doc2.pdf", 200)
         .await.unwrap();
 
-    db::create_link(pool, doc1.id, "link1", None).await.unwrap();
-    db::create_link(pool, doc1.id, "link2", None).await.unwrap();
-    db::create_link(pool, doc2.id, "link3", None).await.unwrap();
+    db::create_link(pool, doc1.id, "link1", None, false, None).await.unwrap();
+    db::create_link(pool, doc1.id, "link2", None, false, None).await.unwrap();
+    db::create_link(pool, doc2.id, "link3", None, false, None).await.unwrap();
 
     // List all links
     let links = db::list_all_links(pool, 10, 0)
@@ -507,7 +507,7 @@ async fn test_list_all_views() {
     // Setup
     let doc = db::create_document(pool, "View All Test", "test.pdf", "/test.pdf", 100)
         .await.unwrap();
-    let link = db::create_link(pool, doc.id, "viewall", None)
+    let link = db::create_link(pool, doc.id, "viewall", None, false, None)
         .await.unwrap();
 
     // Create multiple views
@@ -542,7 +542,7 @@ async fn test_cascade_delete() {
     // Create document with link, token, and view
     let doc = db::create_document(pool, "Cascade Test", "test.pdf", "/test.pdf", 100)
         .await.unwrap();
-    let link = db::create_link(pool, doc.id, "cascade1", None)
+    let link = db::create_link(pool, doc.id, "cascade1", None, false, None)
         .await.unwrap();
     let token = db::create_access_token(
         pool, link.id, "cascade@test.com", "cascadetoken",
@@ -585,7 +585,7 @@ async fn test_expired_link_not_valid() {
     
     // Create expired link
     let expired = Utc::now() - Duration::hours(1);
-    let link = db::create_link(pool, doc.id, "expired1", Some(expired))
+    let link = db::create_link(pool, doc.id, "expired1", None, false, Some(expired))
         .await.unwrap();
     println!("  ✓ Created expired link: {}", link.id);
 
@@ -606,7 +606,7 @@ async fn test_expired_token_not_valid() {
 
     let doc = db::create_document(pool, "Token Expiry Test", "test.pdf", "/test.pdf", 100)
         .await.unwrap();
-    let link = db::create_link(pool, doc.id, "tokenexp", None)
+    let link = db::create_link(pool, doc.id, "tokenexp", None, false, None)
         .await.unwrap();
     
     // Create expired token
@@ -642,7 +642,7 @@ async fn test_full_document_sharing_workflow() {
     println!("    ✓ Document created: {}", doc.id);
 
     println!("  Step 2: Admin creates shareable link");
-    let link = db::create_link(pool, doc.id, "pitch2024", Some(Utc::now() + Duration::days(30)))
+    let link = db::create_link(pool, doc.id, "pitch2024", None, false, Some(Utc::now() + Duration::days(30)))
         .await.unwrap();
     println!("    ✓ Link created: /d/{}", link.short_code);
 

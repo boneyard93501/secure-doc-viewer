@@ -3,6 +3,7 @@ use testcontainers::{ContainerAsync, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres;
 use std::time::Duration;
 
+#[allow(dead_code)]
 pub struct TestDb {
     pub pool: PgPool,
     pub host: String,
