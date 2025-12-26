@@ -550,9 +550,13 @@ pub async fn get_global_stats(pool: &PgPool) -> Result<GlobalStats, sqlx::Error>
             (SELECT COUNT(*) FROM documents) as total_docs,
             (SELECT COUNT(*) FROM links) as total_links,
             (SELECT COUNT(*) FROM views) as total_views,
-            (SELECT COUNT(*) FROM links 
-             WHERE (revoked IS NULL OR revoked = FALSE)
-               AND (expires_at IS NULL OR expires_at > now())) as active_links
+            (SELECT COUNT(*) FROM links l
+             WHERE (l.revoked IS NULL OR l.revoked = FALSE)
+               AND (l.expires_at IS NULL OR l.expires_at > now())
+               AND NOT (l.one_time_only = TRUE AND EXISTS (
+                   SELECT 1 FROM access_tokens at 
+                   WHERE at.link_id = l.id AND at.used = TRUE
+               ))) as active_links
         "#,
     )
     .fetch_one(pool)
@@ -633,10 +637,14 @@ pub async fn get_document_stats(pool: &PgPool, document_id: Uuid) -> Result<Docu
              JOIN links l ON at.link_id = l.id
              WHERE l.document_id = $1) as unique_viewers,
             (SELECT COUNT(*) FROM links WHERE document_id = $1) as total_links,
-            (SELECT COUNT(*) FROM links
-             WHERE document_id = $1
-               AND (revoked IS NULL OR revoked = FALSE)
-               AND (expires_at IS NULL OR expires_at > now())) as active_links
+            (SELECT COUNT(*) FROM links l
+             WHERE l.document_id = $1
+               AND (l.revoked IS NULL OR l.revoked = FALSE)
+               AND (l.expires_at IS NULL OR l.expires_at > now())
+               AND NOT (l.one_time_only = TRUE AND EXISTS (
+                   SELECT 1 FROM access_tokens at 
+                   WHERE at.link_id = l.id AND at.used = TRUE
+               ))) as active_links
         "#,
     )
     .bind(document_id)

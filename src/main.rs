@@ -254,10 +254,14 @@ async fn health() -> impl IntoResponse {
 }
 
 // Admin page handler - serves combined login/dashboard
-async fn serve_admin() -> Response {
+async fn serve_admin(State(state): State<AppState>) -> Response {
     use axum::response::Html;
     match std::fs::read_to_string("static/admin.html") {
-        Ok(content) => Html(content).into_response(),
+        Ok(content) => {
+            let html = content
+                .replace("{{REFRESH_INTERVAL_MS}}", &(state.config.dashboard.refresh_interval_secs * 1000).to_string());
+            Html(html).into_response()
+        }
         Err(_) => (StatusCode::NOT_FOUND, "Page not found").into_response(),
     }
 }
@@ -329,12 +333,15 @@ async fn serve_viewer(
     ).await;
     
     // Create view record
-    let _ = db::create_view(
+    let view = match db::create_view(
         &state.pool,
         Some(access_token.id),
         &access_token.email,
         Some(&verified_ip),
-    ).await;
+    ).await {
+        Ok(v) => v,
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create view").into_response(),
+    };
     
     // Serve viewer with document info
     let viewer_html = match std::fs::read_to_string("static/viewer.html") {
@@ -345,6 +352,7 @@ async fn serve_viewer(
     let html = viewer_html
         .replace("{{DOCUMENT_NAME}}", &doc.name)
         .replace("{{DOCUMENT_PATH}}", &format!("/api/document/{}", query.token))
+        .replace("{{VIEW_ID}}", &view.id.to_string())
         .replace("{{TOKEN}}", &query.token);
     
     Html(html).into_response()
@@ -605,6 +613,8 @@ async fn request_access(
 
     // Send email via Resend
     if let Some(ref api_key) = state.resend_api_key {
+        tracing::info!(email = %req.email, "Attempting to send verification email via Resend");
+        
         let verify_url = format!("{}?token={}", 
             state.config.email.verification_url_base,
             token
@@ -632,6 +642,8 @@ async fn request_access(
             state.config.branding.owner_name
         );
         
+        tracing::info!(from = %from, to = %req.email, subject = %subject, "Sending email");
+        
         // Send via Resend API
         let client = reqwest::Client::new();
         let send_result = client
@@ -648,19 +660,19 @@ async fn request_access(
             
         match send_result {
             Ok(resp) if resp.status().is_success() => {
-                tracing::info!(email = %req.email, "Verification email sent");
+                tracing::info!(email = %req.email, "Verification email sent successfully");
             }
             Ok(resp) => {
                 let status = resp.status();
                 let body = resp.text().await.unwrap_or_default();
-                tracing::error!(email = %req.email, status = %status, body = %body, "Failed to send email");
+                tracing::error!(email = %req.email, status = %status, body = %body, "Failed to send email - API error");
             }
             Err(e) => {
-                tracing::error!(email = %req.email, error = %e, "Failed to send email");
+                tracing::error!(email = %req.email, error = %e, "Failed to send email - request error");
             }
         }
     } else {
-        tracing::warn!(email = %req.email, token = %token, "No RESEND_API_KEY - email not sent");
+        tracing::warn!(email = %req.email, token = %token, "No RESEND_API_KEY set - email not sent");
     }
 
     json_success(&state.config.messages.email_sent)

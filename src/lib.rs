@@ -14,6 +14,7 @@ pub struct Config {
     pub blocklist: BlocklistConfig,
     pub rate_limit: RateLimitConfig,
     pub logging: LoggingConfig,
+    pub dashboard: DashboardConfig,
     pub routes: RoutesConfig,
     pub messages: MessagesConfig,
 }
@@ -77,6 +78,11 @@ pub struct RateLimitConfig {
 #[derive(Debug, Clone, Deserialize)]
 pub struct LoggingConfig {
     pub level: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct DashboardConfig {
+    pub refresh_interval_secs: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
