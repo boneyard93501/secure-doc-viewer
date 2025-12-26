@@ -11,7 +11,7 @@
 
 mod common;
 
-use common::{TestDb, run_crud_tests, insert_sample_data};
+use common::TestDb;
 use sqlx::Row;
 
 // =============================================================================
@@ -103,7 +103,59 @@ async fn test_db_crud() {
     println!("============================================================");
 
     let db = TestDb::new().await;
-    run_crud_tests(&db.pool).await;
+    
+    // Create document
+    let doc_id = uuid::Uuid::new_v4();
+    sqlx::query("INSERT INTO documents (id, name, filename, storage_path, size_bytes) VALUES ($1, $2, $3, $4, $5)")
+        .bind(doc_id)
+        .bind("Test Doc")
+        .bind("test.pdf")
+        .bind("/tmp/test.pdf")
+        .bind(1000_i64)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    println!("  ✓ Create document");
+    
+    // Read document
+    let row: (String,) = sqlx::query_as("SELECT name FROM documents WHERE id = $1")
+        .bind(doc_id)
+        .fetch_one(&db.pool)
+        .await
+        .unwrap();
+    assert_eq!(row.0, "Test Doc");
+    println!("  ✓ Read document");
+    
+    // Update document
+    sqlx::query("UPDATE documents SET name = $1 WHERE id = $2")
+        .bind("Updated Doc")
+        .bind(doc_id)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    let row: (String,) = sqlx::query_as("SELECT name FROM documents WHERE id = $1")
+        .bind(doc_id)
+        .fetch_one(&db.pool)
+        .await
+        .unwrap();
+    assert_eq!(row.0, "Updated Doc");
+    println!("  ✓ Update document");
+    
+    // Delete document
+    sqlx::query("DELETE FROM documents WHERE id = $1")
+        .bind(doc_id)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM documents WHERE id = $1")
+        .bind(doc_id)
+        .fetch_one(&db.pool)
+        .await
+        .unwrap();
+    assert_eq!(count.0, 0);
+    println!("  ✓ Delete document");
+    
+    println!("\n  ✓ CRUD test passed\n");
 }
 
 #[tokio::test]
@@ -208,6 +260,8 @@ async fn test_interactive() {
     println!("============================================================");
 
     let db = TestDb::new().await;
-    insert_sample_data(&db.pool).await;
-    db.wait_for_inspection(60).await;
+    println!("Connect to: postgres://postgres:postgres@{}:{}/postgres", db.host, db.port);
+    println!("Sleeping 60 seconds...");
+    tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+    println!("Done.");
 }

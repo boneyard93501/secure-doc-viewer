@@ -358,14 +358,6 @@ async fn serve_viewer(
     Html(html).into_response()
 }
 
-async fn serve_static_html(path: &str) -> Response {
-    use axum::response::Html;
-    match std::fs::read_to_string(path) {
-        Ok(content) => Html(content).into_response(),
-        Err(_) => (StatusCode::NOT_FOUND, "Page not found").into_response(),
-    }
-}
-
 // Serve PDF document (requires valid token)
 async fn serve_document_file(
     State(state): State<AppState>,
@@ -735,9 +727,16 @@ async fn track_view(
     State(state): State<AppState>,
     Json(req): Json<TrackRequest>,
 ) -> Response {
+    tracing::info!(view_id = %req.view_id, duration = ?req.duration_secs, pages = ?req.pages_viewed, "Tracking view");
     match db::update_view(&state.pool, req.view_id, req.duration_secs, req.pages_viewed).await {
-        Ok(_) => json_success("View updated"),
-        Err(_) => json_error(StatusCode::INTERNAL_SERVER_ERROR, "Failed to update view"),
+        Ok(_) => {
+            tracing::info!(view_id = %req.view_id, "View updated successfully");
+            json_success("View updated")
+        }
+        Err(e) => {
+            tracing::error!(view_id = %req.view_id, error = %e, "Failed to update view");
+            json_error(StatusCode::INTERNAL_SERVER_ERROR, "Failed to update view")
+        }
     }
 }
 

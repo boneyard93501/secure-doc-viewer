@@ -130,7 +130,7 @@ async fn test_link_crud() {
         .expect("Failed to create document");
 
     // Create link (no expiry)
-    let link1 = db::create_link(pool, doc.id, "abc123", None)
+    let link1 = db::create_link(pool, doc.id, "abc123", None, false, None)
         .await
         .expect("Failed to create link");
     println!("  ✓ Created link: {}", link1.short_code);
@@ -139,7 +139,7 @@ async fn test_link_crud() {
 
     // Create link (with expiry)
     let expires = Utc::now() + Duration::days(7);
-    let link2 = db::create_link(pool, doc.id, "xyz789", Some(expires))
+    let link2 = db::create_link(pool, doc.id, "xyz789", None, false, Some(expires))
         .await
         .expect("Failed to create link");
     assert!(link2.expires_at.is_some());
@@ -207,7 +207,7 @@ async fn test_access_token_crud() {
     // Setup
     let doc = db::create_document(pool, "Token Test", "test.pdf", "/path", 1024)
         .await.unwrap();
-    let link = db::create_link(pool, doc.id, "tok123", None)
+    let link = db::create_link(pool, doc.id, "tok123", None, false, None)
         .await.unwrap();
 
     // Create token
@@ -281,7 +281,7 @@ async fn test_view_crud() {
     // Setup
     let doc = db::create_document(pool, "View Test", "test.pdf", "/path", 1024)
         .await.unwrap();
-    let link = db::create_link(pool, doc.id, "view123", None)
+    let link = db::create_link(pool, doc.id, "view123", None, false, None)
         .await.unwrap();
     let expires = Utc::now() + Duration::hours(1);
     let token = db::create_access_token(pool, link.id, "viewer@corp.com", "viewtok", expires, None, None)
@@ -404,8 +404,8 @@ async fn test_document_stats() {
     let doc = db::create_document(pool, "Stats Test", "test.pdf", "/path", 1024)
         .await.unwrap();
     
-    let link1 = db::create_link(pool, doc.id, "stat1", None).await.unwrap();
-    let link2 = db::create_link(pool, doc.id, "stat2", Some(Utc::now() - Duration::days(1))).await.unwrap(); // expired
+    let link1 = db::create_link(pool, doc.id, "stat1", None, false, None).await.unwrap();
+    let _link2 = db::create_link(pool, doc.id, "stat2", None, false, Some(Utc::now() - Duration::days(1))).await.unwrap(); // expired
     
     let expires = Utc::now() + Duration::hours(1);
     let tok1 = db::create_access_token(pool, link1.id, "a@corp.com", "t1", expires, None, None).await.unwrap();
