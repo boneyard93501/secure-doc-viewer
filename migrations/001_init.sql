@@ -56,7 +56,7 @@ CREATE INDEX idx_access_tokens_token ON access_tokens(token);
 -- Views
 CREATE TABLE views (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    access_token_id UUID REFERENCES access_tokens(id),
+    access_token_id UUID REFERENCES access_tokens(id) ON DELETE CASCADE,
     email           TEXT NOT NULL,
     ip              TEXT,
     started_at      TIMESTAMPTZ DEFAULT now(),
