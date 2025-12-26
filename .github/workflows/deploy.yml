@@ -8,7 +8,6 @@ env:
   DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
   JWT_SECRET: ${{ secrets.JWT_SECRET }}
   RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-  ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
 
 jobs:
   build-and-deploy:
@@ -30,7 +29,7 @@ jobs:
         run: cargo test --release
       
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: docsend-binary
           path: target/release/docsend
@@ -48,7 +47,7 @@ jobs:
           sudo apt install -y ansible
       
       - name: Download binary artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: docsend-binary
           path: ./artifact
@@ -63,7 +62,6 @@ jobs:
             -e "docsend_binary_path=../artifact/docsend" \
             -e "db_password=$DB_PASSWORD" \
             -e "jwt_secret=$JWT_SECRET" \
-            -e "resend_api_key=$RESEND_API_KEY" \
-            -e "admin_password=$ADMIN_PASSWORD"
+            -e "resend_api_key=$RESEND_API_KEY"
         env:
           ANSIBLE_HOST_KEY_CHECKING: False
