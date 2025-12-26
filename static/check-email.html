@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Your Email</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .icon {
+            width: 64px;
+            height: 64px;
+            background: #667eea;
+            border-radius: 50%;
+            margin: 0 auto 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .icon svg {
+            width: 32px;
+            height: 32px;
+            fill: white;
+        }
+        h1 { 
+            font-size: 24px; 
+            margin-bottom: 16px;
+            color: #333;
+        }
+        p { 
+            color: #666; 
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+        .email {
+            font-weight: 600;
+            color: #667eea;
+        }
+        .note {
+            font-size: 14px;
+            color: #999;
+            margin-top: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">
+            <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+        </div>
+        
+        <h1>Check Your Email</h1>
+        <p>We've sent a verification link to<br><span class="email" id="email"></span></p>
+        <p>Click the link in the email to access the document.</p>
+        
+        <p class="note">Link expires in 1 hour. Check spam if you don't see it.</p>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const email = params.get('email');
+        if (email) {
+            document.getElementById('email').textContent = email;
+        }
+    </script>
+</body>
+</html>

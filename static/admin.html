@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fa; min-height: 100vh; }
+        
+        /* Login styles */
+        .login-container { display: none; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); align-items: center; justify-content: center; }
+        .login-container.active { display: flex; }
+        .login-box { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 100%; max-width: 400px; }
+        .login-box h1 { font-size: 24px; margin-bottom: 30px; color: #333; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; color: #333; font-weight: 500; }
+        .form-group input, .form-group textarea { width: 100%; padding: 12px; border: 2px solid #e1e8ed; border-radius: 6px; font-size: 16px; }
+        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #667eea; }
+        .form-group.checkbox { display: flex; align-items: center; gap: 8px; }
+        .form-group.checkbox input { width: auto; }
+        .form-group.checkbox label { margin: 0; }
+        .login-btn { width: 100%; padding: 14px; background: #667eea; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer; }
+        .login-btn:hover { background: #5568d3; }
+        .login-error { background: #fee; color: #c00; padding: 12px; border-radius: 6px; margin-bottom: 20px; display: none; }
+        .login-error.show { display: block; }
+        
+        /* Dashboard styles */
+        .dashboard-container { display: none; }
+        .dashboard-container.active { display: block; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 24px 32px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 24px; }
+        .header-actions { display: flex; gap: 12px; align-items: center; }
+        .header .refresh-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .header .refresh-btn:hover { background: rgba(255,255,255,0.3); }
+        .header .logout { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .header .logout:hover { background: rgba(255,255,255,0.3); }
+        .last-refresh { font-size: 12px; opacity: 0.8; }
+        .content { padding: 32px; max-width: 1400px; margin: 0 auto; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px; overflow: hidden; }
+        .card-header { padding: 16px 24px; border-bottom: 1px solid #e1e8ed; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        .card-header h2 { font-size: 18px; color: #333; }
+        .card-header-actions { display: flex; gap: 8px; align-items: center; }
+        .card-body { padding: 24px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #e1e8ed; }
+        th { font-weight: 600; color: #666; font-size: 14px; }
+        td { color: #333; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background: #f8f9fa; }
+        .status { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .status.active, .status.success { background: #d4edda; color: #155724; }
+        .status.expired, .status.failed { background: #f8d7da; color: #721c24; }
+        .status.revoked { background: #fff3cd; color: #856404; }
+        .status.one-time { background: #e7f1ff; color: #0056b3; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: 500; text-decoration: none; display: inline-block; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-outline { background: white; color: #667eea; border: 1px solid #667eea; }
+        .btn-outline:hover { background: #667eea; color: white; }
+        .btn-sm { padding: 4px 12px; font-size: 12px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .stat-card .value { font-size: 32px; font-weight: 700; color: #667eea; }
+        .stat-card .label { font-size: 14px; color: #666; margin-top: 4px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 100; }
+        .modal.show { display: flex; }
+        .modal-content { background: white; padding: 32px; border-radius: 12px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+        .modal-content h3 { margin-bottom: 24px; color: #333; }
+        .modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+        .empty { color: #999; text-align: center; padding: 48px; }
+        .file-size { color: #999; font-size: 12px; }
+        .link-url { display: flex; align-items: center; gap: 8px; }
+        .link-url code { background: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-size: 13px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .link-url .copy-btn { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; }
+        .link-url .copy-btn:hover { background: #f0f0f0; }
+        .link-url .copy-btn.copied { background: #d4edda; border-color: #28a745; }
+        .filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .filters input, .filters select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        .filters .clear-btn { background: none; border: none; color: #667eea; cursor: pointer; font-size: 14px; }
+        .ip-address { font-family: monospace; font-size: 12px; color: #666; }
+        .failure-reason { font-size: 11px; color: #856404; background: #fff3cd; padding: 2px 6px; border-radius: 4px; }
+        .note { font-size: 12px; color: #666; font-style: italic; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    </style>
+</head>
+<body>
+    <!-- Login View -->
+    <div class="login-container" id="loginView">
+        <div class="login-box">
+            <h1>Admin Login</h1>
+            <div class="login-error" id="loginError"></div>
+            <form id="loginForm">
+                <div class="form-group"><label>Email</label><input type="email" id="loginEmail" required></div>
+                <div class="form-group"><label>Password</label><input type="password" id="loginPassword" required></div>
+                <button type="submit" class="login-btn">Login</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Dashboard View -->
+    <div class="dashboard-container" id="dashboardView">
+        <div class="header">
+            <div>
+                <h1>Document Sharing Admin</h1>
+                <div class="last-refresh">Last refresh: <span id="lastRefresh">-</span></div>
+            </div>
+            <div class="header-actions">
+                <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+                <button class="logout" onclick="logout()">Logout</button>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="stats">
+                <div class="stat-card"><div class="value" id="totalDocs">0</div><div class="label">Documents</div></div>
+                <div class="stat-card"><div class="value" id="totalLinks">0</div><div class="label">Links</div></div>
+                <div class="stat-card"><div class="value" id="totalViews">0</div><div class="label">Total Views</div></div>
+                <div class="stat-card"><div class="value" id="activeLinks">0</div><div class="label">Active Links</div></div>
+                <div class="stat-card"><div class="value" id="failedAttempts">0</div><div class="label">Blocked Attempts</div></div>
+            </div>
+            
+            <!-- Documents -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Documents</h2>
+                    <div class="card-header-actions">
+                        <button class="btn btn-outline btn-sm" onclick="exportCSV('documents')">Export CSV</button>
+                        <button class="btn btn-primary" onclick="showModal('uploadModal')">+ Upload</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <table><thead><tr><th>Name</th><th>Uploaded</th><th>Size</th><th>Links</th><th>Views</th><th>Actions</th></tr></thead>
+                    <tbody id="docsTable"><tr><td colspan="6" class="empty">No documents</td></tr></tbody></table>
+                </div>
+            </div>
+            
+            <!-- Links -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Links</h2>
+                    <div class="card-header-actions">
+                        <button class="btn btn-outline btn-sm" onclick="exportCSV('links')">Export CSV</button>
+                        <button class="btn btn-primary" onclick="showModal('linkModal')">+ Create Link</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <table><thead><tr><th>Document</th><th>URL</th><th>Note</th><th>Views</th><th>Expires</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody id="linksTable"><tr><td colspan="7" class="empty">No links</td></tr></tbody></table>
+                </div>
+            </div>
+            
+            <!-- Views -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Views</h2>
+                    <div class="card-header-actions">
+                        <div class="filters">
+                            <select id="filterDocument"><option value="">All Docs</option></select>
+                            <input type="text" id="filterEmail" placeholder="Email">
+                            <input type="text" id="filterIP" placeholder="IP">
+                            <button class="clear-btn" onclick="clearViewFilters()">Clear</button>
+                        </div>
+                        <button class="btn btn-outline btn-sm" onclick="exportCSV('views')">Export CSV</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <table><thead><tr><th>Email</th><th>Document</th><th>Date</th><th>Duration</th><th>Pages</th><th>IP</th></tr></thead>
+                    <tbody id="viewsTable"><tr><td colspan="6" class="empty">No views</td></tr></tbody></table>
+                </div>
+            </div>
+            
+            <!-- Attempts -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Access Attempts</h2>
+                    <div class="card-header-actions">
+                        <div class="filters">
+                            <select id="filterAttemptStatus"><option value="">All</option><option value="success">Success</option><option value="failed">Failed</option></select>
+                            <input type="text" id="filterAttemptEmail" placeholder="Email">
+                            <button class="clear-btn" onclick="clearAttemptFilters()">Clear</button>
+                        </div>
+                        <button class="btn btn-outline btn-sm" onclick="exportCSV('attempts')">Export CSV</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <table><thead><tr><th>Date</th><th>Email</th><th>Document</th><th>Status</th><th>Reason</th><th>IP</th></tr></thead>
+                    <tbody id="attemptsTable"><tr><td colspan="6" class="empty">No attempts</td></tr></tbody></table>
+                </div>
+            </div>
+            
+            <!-- Blocklist -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Custom Blocklist</h2>
+                    <button class="btn btn-primary" onclick="showModal('blocklistModal')">+ Add Domain</button>
+                </div>
+                <div class="card-body" id="blocklist"><div class="empty">Default blocklist only</div></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modals -->
+    <div class="modal" id="uploadModal">
+        <div class="modal-content">
+            <h3>Upload Document</h3>
+            <form id="uploadForm">
+                <div class="form-group"><label>Name</label><input type="text" name="name" required></div>
+                <div class="form-group"><label>File (PDF)</label><input type="file" name="file" accept=".pdf" required></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn" onclick="hideModal('uploadModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="modal" id="linkModal">
+        <div class="modal-content">
+            <h3>Create Link</h3>
+            <form id="linkForm">
+                <div class="form-group"><label>Document</label><select name="document_id" id="docSelect" required><option value="">Select...</option></select></div>
+                <div class="form-group"><label>Note (optional)</label><textarea name="note" rows="2" placeholder="e.g., For Sequoia meeting"></textarea></div>
+                <div class="form-group"><label>Expires in (days)</label><input type="number" name="expires_in_days" min="1" max="365" placeholder="Empty = never"></div>
+                <div class="form-group checkbox"><input type="checkbox" name="one_time_only" id="oneTimeOnly"><label for="oneTimeOnly">One-time view only</label></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn" onclick="hideModal('linkModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="modal" id="blocklistModal">
+        <div class="modal-content">
+            <h3>Add Domain</h3>
+            <form id="blocklistForm">
+                <div class="form-group"><label>Domain</label><input type="text" name="domain" placeholder="gmail.com" required></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn" onclick="hideModal('blocklistModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        const BASE_URL = window.location.origin;
+        const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
+        let token = localStorage.getItem('admin_token');
+        let allViews = [], allAttempts = [], allLinks = [], documents = [];
+        let autoRefreshTimer = null;
+        
+        function showLogin() {
+            document.getElementById('loginView').classList.add('active');
+            document.getElementById('dashboardView').classList.remove('active');
+            stopAutoRefresh();
+        }
+        
+        function showDashboard() {
+            document.getElementById('loginView').classList.remove('active');
+            document.getElementById('dashboardView').classList.add('active');
+            loadData();
+            startAutoRefresh();
+        }
+        
+        function startAutoRefresh() {
+            stopAutoRefresh();
+            autoRefreshTimer = setInterval(loadData, AUTO_REFRESH_INTERVAL);
+        }
+        
+        function stopAutoRefresh() {
+            if (autoRefreshTimer) {
+                clearInterval(autoRefreshTimer);
+                autoRefreshTimer = null;
+            }
+        }
+        
+        function authHeaders() { return { 'Authorization': `Bearer ${token}` }; }
+        
+        function logout() {
+            localStorage.removeItem('admin_token');
+            token = null;
+            showLogin();
+        }
+        
+        function showModal(id) { document.getElementById(id).classList.add('show'); }
+        function hideModal(id) { document.getElementById(id).classList.remove('show'); }
+        
+        // Login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const errorDiv = document.getElementById('loginError');
+            errorDiv.classList.remove('show');
+            
+            try {
+                const resp = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: document.getElementById('loginEmail').value,
+                        password: document.getElementById('loginPassword').value
+                    })
+                });
+                
+                if (!resp.ok) throw new Error('Invalid credentials');
+                const data = await resp.json();
+                token = data.token;
+                localStorage.setItem('admin_token', token);
+                showDashboard();
+            } catch (err) {
+                errorDiv.textContent = err.message;
+                errorDiv.classList.add('show');
+            }
+        });
+        
+        async function loadData() {
+            try {
+                const h = authHeaders();
+                const [docs, links, views, attempts, blocklist, stats] = await Promise.all([
+                    fetch('/api/admin/documents', { headers: h }).then(r => r.ok ? r.json() : Promise.reject('401')),
+                    fetch('/api/admin/links', { headers: h }).then(r => r.ok ? r.json() : Promise.reject('401')),
+                    fetch('/api/admin/views', { headers: h }).then(r => r.ok ? r.json() : Promise.reject('401')),
+                    fetch('/api/admin/attempts', { headers: h }).then(r => r.ok ? r.json() : Promise.reject('401')),
+                    fetch('/api/admin/blocklist', { headers: h }).then(r => r.ok ? r.json() : Promise.reject('401')),
+                    fetch('/api/admin/stats', { headers: h }).then(r => r.ok ? r.json() : Promise.reject('401')),
+                ]);
+                
+                documents = docs; allViews = views; allLinks = links; allAttempts = attempts;
+                
+                document.getElementById('totalDocs').textContent = stats.total_docs || 0;
+                document.getElementById('totalLinks').textContent = stats.total_links || 0;
+                document.getElementById('totalViews').textContent = stats.total_views || 0;
+                document.getElementById('activeLinks').textContent = stats.active_links || 0;
+                document.getElementById('failedAttempts').textContent = attempts.filter(a => !a.success).length;
+                document.getElementById('lastRefresh').textContent = new Date().toLocaleTimeString();
+                
+                renderDocs(docs, links); renderLinks(links); renderViews(views); renderAttempts(attempts); renderBlocklist(blocklist);
+                updateDocSelect(docs); updateFilterDocSelect(docs);
+            } catch (e) { if (e === '401') logout(); }
+        }
+        
+        function updateDocSelect(docs) {
+            document.getElementById('docSelect').innerHTML = '<option value="">Select...</option>' + docs.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+        }
+        function updateFilterDocSelect(docs) {
+            document.getElementById('filterDocument').innerHTML = '<option value="">All Docs</option>' + docs.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+        }
+        
+        function formatBytes(b) { if (!b) return '-'; if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1) + ' KB'; return (b/1048576).toFixed(1) + ' MB'; }
+        function formatDuration(s) { if (!s) return '-'; return s < 60 ? s + 's' : Math.floor(s/60) + 'm ' + (s%60) + 's'; }
+        
+        function copyToClipboard(text, btn) {
+            navigator.clipboard.writeText(text).then(() => {
+                btn.textContent = 'Copied!'; btn.classList.add('copied');
+                setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+            });
+        }
+        
+        function renderDocs(docs, links) {
+            const tbody = document.getElementById('docsTable');
+            if (!docs.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No documents</td></tr>'; return; }
+            tbody.innerHTML = docs.map(doc => {
+                const docLinks = links.filter(l => l.document_id === doc.id);
+                const docViews = allViews.filter(v => v.document_name === doc.name);
+                return `<tr><td><strong>${doc.name}</strong><br><span class="file-size">${doc.filename}</span></td><td>${new Date(doc.created_at).toLocaleDateString()}</td><td class="file-size">${formatBytes(doc.size_bytes)}</td><td>${docLinks.length}</td><td>${docViews.length}</td><td><button class="btn btn-danger btn-sm" onclick="deleteDoc('${doc.id}')">Delete</button></td></tr>`;
+            }).join('');
+        }
+        
+        function renderLinks(links) {
+            const tbody = document.getElementById('linksTable');
+            if (!links.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No links</td></tr>'; return; }
+            tbody.innerHTML = links.map(link => {
+                const isExpired = link.expires_at && new Date(link.expires_at) < new Date();
+                const isOneTime = link.one_time_only;
+                let status = link.revoked ? 'revoked' : (isExpired ? 'expired' : 'active');
+                const url = `${BASE_URL}/d/${link.short_code}`;
+                const noteHtml = link.note ? `<span class="note" title="${link.note}">${link.note}</span>` : '-';
+                const statusHtml = isOneTime ? 
+                    `<span class="status ${status}">${status}</span> <span class="status one-time">1x</span>` :
+                    `<span class="status ${status}">${status}</span>`;
+                return `<tr><td>${link.document_name}</td><td><div class="link-url"><code title="${url}">${url}</code><button class="copy-btn" onclick="copyToClipboard('${url}', this)">Copy</button></div></td><td>${noteHtml}</td><td>${link.view_count || 0}</td><td>${link.expires_at ? new Date(link.expires_at).toLocaleDateString() : 'Never'}</td><td>${statusHtml}</td><td>${status === 'active' ? `<button class="btn btn-danger btn-sm" onclick="revokeLink('${link.id}')">Revoke</button>` : ''}</td></tr>`;
+            }).join('');
+        }
+        
+        function renderViews(views) {
+            const tbody = document.getElementById('viewsTable');
+            if (!views.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No views</td></tr>'; return; }
+            tbody.innerHTML = views.map(v => `<tr><td><strong>${v.email}</strong></td><td>${v.document_name}</td><td>${v.started_at ? new Date(v.started_at).toLocaleString() : '-'}</td><td>${formatDuration(v.duration_secs)}</td><td class="file-size">${v.pages_viewed?.join(', ') || '-'}</td><td class="ip-address">${v.ip || '-'}</td></tr>`).join('');
+        }
+        
+        function renderAttempts(attempts) {
+            const tbody = document.getElementById('attemptsTable');
+            if (!attempts.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No attempts</td></tr>'; return; }
+            tbody.innerHTML = attempts.map(a => {
+                const status = a.success ? 'success' : 'failed';
+                const reason = a.failure_reason?.replace('blocked_domain:', '').replace('custom_blocked:', '') || '';
+                return `<tr><td>${a.created_at ? new Date(a.created_at).toLocaleString() : '-'}</td><td><strong>${a.email}</strong></td><td>${a.document_name || a.short_code}</td><td><span class="status ${status}">${status}</span></td><td>${reason ? `<span class="failure-reason">${reason}</span>` : '-'}</td><td class="ip-address">${a.ip || '-'}</td></tr>`;
+            }).join('');
+        }
+        
+        function renderBlocklist(domains) {
+            const c = document.getElementById('blocklist');
+            if (!domains.length) { c.innerHTML = '<div class="empty">Default blocklist only</div>'; return; }
+            c.innerHTML = domains.map(d => `<span style="display:inline-block;background:#f0f0f0;padding:4px 12px;margin:4px;border-radius:4px;">${d.domain}<button onclick="removeBlockedDomain('${d.domain}')" style="background:none;border:none;color:#e74c3c;cursor:pointer;margin-left:8px;">×</button></span>`).join('');
+        }
+        
+        // Filters
+        function filterViews() {
+            const doc = document.getElementById('filterDocument').value;
+            const email = document.getElementById('filterEmail').value.toLowerCase();
+            const ip = document.getElementById('filterIP').value.toLowerCase();
+            renderViews(allViews.filter(v => (!doc || v.document_name === doc) && (!email || v.email.toLowerCase().includes(email)) && (!ip || (v.ip && v.ip.toLowerCase().includes(ip)))));
+        }
+        function clearViewFilters() { document.getElementById('filterDocument').value = ''; document.getElementById('filterEmail').value = ''; document.getElementById('filterIP').value = ''; renderViews(allViews); }
+        
+        function filterAttempts() {
+            const status = document.getElementById('filterAttemptStatus').value;
+            const email = document.getElementById('filterAttemptEmail').value.toLowerCase();
+            renderAttempts(allAttempts.filter(a => (!status || (status === 'success' ? a.success : !a.success)) && (!email || a.email.toLowerCase().includes(email))));
+        }
+        function clearAttemptFilters() { document.getElementById('filterAttemptStatus').value = ''; document.getElementById('filterAttemptEmail').value = ''; renderAttempts(allAttempts); }
+        
+        document.getElementById('filterDocument').addEventListener('change', filterViews);
+        document.getElementById('filterEmail').addEventListener('input', filterViews);
+        document.getElementById('filterIP').addEventListener('input', filterViews);
+        document.getElementById('filterAttemptStatus').addEventListener('change', filterAttempts);
+        document.getElementById('filterAttemptEmail').addEventListener('input', filterAttempts);
+        
+        // Actions
+        async function deleteDoc(id) { if (!confirm('Delete document and all links?')) return; await fetch(`/api/admin/documents/${id}`, { method: 'DELETE', headers: authHeaders() }); loadData(); }
+        async function revokeLink(id) { if (!confirm('Revoke link?')) return; await fetch(`/api/admin/links/${id}/revoke`, { method: 'POST', headers: authHeaders() }); loadData(); }
+        async function removeBlockedDomain(domain) { await fetch(`/api/admin/blocklist/${encodeURIComponent(domain)}`, { method: 'DELETE', headers: authHeaders() }); loadData(); }
+        
+        async function exportCSV(type) {
+            try {
+                const resp = await fetch(`/api/admin/export/${type}`, { headers: authHeaders() });
+                if (!resp.ok) {
+                    const err = await resp.text();
+                    alert('Export failed: ' + err);
+                    return;
+                }
+                const blob = await resp.blob();
+                const a = document.createElement('a'); 
+                a.href = URL.createObjectURL(blob); 
+                a.download = type + '.csv'; 
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            } catch (err) {
+                alert('Export error: ' + err.message);
+            }
+        }
+        
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const resp = await fetch('/api/admin/documents', { method: 'POST', headers: authHeaders(), body: new FormData(e.target) });
+                if (!resp.ok) {
+                    const err = await resp.text();
+                    alert('Upload failed: ' + err);
+                    return;
+                }
+                hideModal('uploadModal'); e.target.reset(); loadData();
+            } catch (err) {
+                alert('Upload error: ' + err.message);
+            }
+        });
+        
+        document.getElementById('linkForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const days = fd.get('expires_in_days');
+            const note = fd.get('note');
+            const oneTimeOnly = fd.get('one_time_only') === 'on';
+            try {
+                const resp = await fetch('/api/admin/links', { 
+                    method: 'POST', 
+                    headers: { ...authHeaders(), 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ 
+                        document_id: fd.get('document_id'), 
+                        expires_in_days: days ? parseInt(days) : null,
+                        note: note || null,
+                        one_time_only: oneTimeOnly
+                    }) 
+                });
+                if (!resp.ok) {
+                    const err = await resp.text();
+                    alert('Create link failed: ' + err);
+                    return;
+                }
+                hideModal('linkModal'); e.target.reset(); loadData();
+            } catch (err) {
+                alert('Create link error: ' + err.message);
+            }
+        });
+        
+        document.getElementById('blocklistForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const domain = e.target.domain.value;
+            console.log('Adding domain:', domain);
+            console.log('Token:', token);
+            try {
+                const resp = await fetch('/api/admin/blocklist', { 
+                    method: 'POST', 
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json' 
+                    }, 
+                    body: JSON.stringify({ domain: domain }) 
+                });
+                console.log('Response status:', resp.status);
+                const text = await resp.text();
+                console.log('Response body:', text);
+                if (!resp.ok) {
+                    alert('Add domain failed: ' + text);
+                    return;
+                }
+                hideModal('blocklistModal'); e.target.reset(); loadData();
+            } catch (err) {
+                console.error('Error:', err);
+                alert('Add domain error: ' + err.message);
+            }
+        });
+        
+        // Init
+        if (token) { showDashboard(); } else { showLogin(); }
+    </script>
+</body>
+</html>
