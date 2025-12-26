@@ -1,0 +1,10 @@
+{{ domain }} {
+    reverse_proxy localhost:{{ app_port }}
+    
+    encode gzip
+    
+    log {
+        output file /var/log/caddy/{{ domain }}.log
+        format json
+    }
+}

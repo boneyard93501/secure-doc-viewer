@@ -1,0 +1,63 @@
+[server]
+host = "{{ app_host }}"
+port = {{ app_port }}
+static_dir = "{{ app_dir }}/static"
+upload_dir = "{{ data_dir }}/uploads"
+
+[branding]
+owner_name = "{{ owner_name }}"
+document_title_default = "Document"
+
+[database]
+host = "{{ db_host }}"
+port = {{ db_port }}
+user = "{{ db_user }}"
+database = "{{ db_name }}"
+password = "{{ db_password }}"
+max_connections = 10
+
+[auth]
+jwt_secret = "{{ jwt_secret }}"
+admin_token_ttl_secs = 86400
+access_token_ttl_secs = 3600
+
+[email]
+resend_api_key = "{{ resend_api_key }}"
+from_email = "{{ from_email }}"
+from_name = "{{ from_name }}"
+verification_url_base = "https://{{ domain }}/view"
+
+[blocklist]
+file_path = "{{ app_dir }}/data/blocklist.txt"
+
+[rate_limit]
+email_send_per_hour = 10
+token_attempts_per_hour = 20
+
+[logging]
+level = "info,tower_http=debug,sqlx=warn"
+
+[dashboard]
+refresh_interval_secs = 30
+
+[routes]
+health = "/health"
+link_meta = "/api/link/{id}/meta"
+token_meta = "/api/token/{token}/meta"
+verify = "/api/verify"
+document = "/api/document/{token}"
+track = "/api/track"
+admin_login = "/api/admin/login"
+admin_password = "/api/admin/password"
+admin_documents = "/api/admin/documents"
+admin_links = "/api/admin/links"
+admin_views = "/api/admin/views"
+admin_blocklist = "/api/admin/blocklist"
+admin_stats = "/api/admin/stats"
+
+[messages]
+email_sent = "Verification email sent"
+domain_blocked = "Personal email domains not permitted"
+link_expired = "This link has expired"
+link_revoked = "This link has been revoked"
+invalid_token = "Invalid or expired token"
