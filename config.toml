@@ -1,0 +1,64 @@
+[server]
+host = "127.0.0.1"
+port = 8080
+static_dir = "static"
+upload_dir = "uploads"
+
+[branding]
+owner_name = "Better Half"
+document_title_default = "Document"
+
+[database]
+host = "localhost"
+port = 5432
+user = "docsend_user"
+database = "docsend"
+max_connections = 10
+
+[test_database]
+host = "localhost"
+port = 5433
+user = "docsend_user"
+database = "docsend_test"
+max_connections = 2
+
+[auth]
+admin_token_ttl_secs = 86400
+access_token_ttl_secs = 3600
+
+[email]
+from_email = "bernhard@better-half.ai"
+from_name = "Better Half"
+verification_url_base = "http://localhost:8080/view"
+
+[blocklist]
+file_path = "data/blocklist.txt"
+
+[rate_limit]
+email_send_per_hour = 10
+token_attempts_per_hour = 20
+
+[logging]
+level = "info,tower_http=debug,sqlx=warn"
+
+[routes]
+health = "/health"
+link_meta = "/api/link/{id}/meta"
+token_meta = "/api/token/{token}/meta"
+verify = "/api/verify"
+document = "/api/document/{token}"
+track = "/api/track"
+admin_login = "/api/admin/login"
+admin_password = "/api/admin/password"
+admin_documents = "/api/admin/documents"
+admin_links = "/api/admin/links"
+admin_views = "/api/admin/views"
+admin_blocklist = "/api/admin/blocklist"
+admin_stats = "/api/admin/stats"
+
+[messages]
+email_sent = "Verification email sent"
+domain_blocked = "Personal email domains not permitted"
+link_expired = "This link has expired"
+link_revoked = "This link has been revoked"
+invalid_token = "Invalid or expired token"
