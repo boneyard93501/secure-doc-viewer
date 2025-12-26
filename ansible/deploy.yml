@@ -1,0 +1,10 @@
+---
+- name: Deploy Docsend Application
+  hosts: docsend_vm
+  become: yes
+  
+  roles:
+    - postgres
+    - caddy
+    - docsend
+    - firewall

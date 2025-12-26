@@ -1,0 +1,82 @@
+---
+- name: Create docsend user
+  user:
+    name: "{{ app_user }}"
+    system: yes
+    shell: /bin/false
+    create_home: no
+
+- name: Create application directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0755'
+  loop:
+    - "{{ app_dir }}"
+    - "{{ app_dir }}/bin"
+    - "{{ app_dir }}/static"
+    - "{{ app_dir }}/data"
+    - "{{ config_dir }}"
+    - "{{ data_dir }}"
+    - "{{ data_dir }}/uploads"
+    - "{{ log_dir }}"
+
+- name: Copy binary
+  copy:
+    src: "{{ docsend_binary_path }}"
+    dest: "{{ app_dir }}/bin/docsend"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0755'
+  notify: restart docsend
+
+- name: Copy static files
+  synchronize:
+    src: "{{ playbook_dir }}/../static/"
+    dest: "{{ app_dir }}/static/"
+    delete: yes
+    recursive: yes
+  delegate_to: localhost
+
+- name: Set ownership on static files
+  file:
+    path: "{{ app_dir }}/static"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    recurse: yes
+
+- name: Copy blocklist
+  copy:
+    src: "{{ playbook_dir }}/../data/blocklist.txt"
+    dest: "{{ app_dir }}/data/blocklist.txt"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0644'
+
+- name: Deploy config.toml
+  template:
+    src: config.toml.j2
+    dest: "{{ config_dir }}/config.toml"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0600'
+  notify: restart docsend
+
+- name: Deploy systemd service
+  template:
+    src: docsend.service.j2
+    dest: /etc/systemd/system/docsend.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - reload systemd
+    - restart docsend
+
+- name: Ensure docsend is running
+  systemd:
+    name: docsend
+    state: started
+    enabled: yes

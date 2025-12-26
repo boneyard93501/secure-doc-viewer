@@ -1,0 +1,57 @@
+---
+- name: Install PostgreSQL
+  apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+      - python3-psycopg2
+    state: present
+    update_cache: yes
+
+- name: Ensure PostgreSQL is running
+  systemd:
+    name: postgresql
+    state: started
+    enabled: yes
+
+- name: Create database user
+  postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    state: present
+  become_user: postgres
+
+- name: Create database
+  postgresql_db:
+    name: "{{ db_name }}"
+    owner: "{{ db_user }}"
+    state: present
+  become_user: postgres
+
+- name: Grant privileges to user
+  postgresql_privs:
+    database: "{{ db_name }}"
+    role: "{{ db_user }}"
+    privs: ALL
+    type: database
+  become_user: postgres
+
+- name: Copy migration file
+  copy:
+    src: "{{ playbook_dir }}/../migrations/001_init.sql"
+    dest: /tmp/001_init.sql
+    mode: '0644'
+
+- name: Run database migrations
+  postgresql_query:
+    db: "{{ db_name }}"
+    login_user: "{{ db_user }}"
+    login_password: "{{ db_password }}"
+    path_to_script: /tmp/001_init.sql
+  become_user: postgres
+  ignore_errors: yes
+
+- name: Remove migration file
+  file:
+    path: /tmp/001_init.sql
+    state: absent

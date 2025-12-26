@@ -1,0 +1,27 @@
+# Domain configuration
+domain: docs.better-half.ai
+
+# Application configuration
+app_name: docsend
+app_user: docsend
+app_dir: /opt/docsend
+config_dir: /etc/docsend
+data_dir: /var/docsend
+log_dir: /var/log/docsend
+
+# Database configuration
+db_name: docsend
+db_user: docsend_user
+db_host: localhost
+db_port: 5432
+
+# Application settings
+app_host: 0.0.0.0
+app_port: 8080
+
+# Email settings
+from_email: bernhard@better-half.ai
+from_name: Better Half
+
+# Branding
+owner_name: Better Half
