@@ -41,6 +41,9 @@ token_attempts_per_hour = 20
 [logging]
 level = "info,tower_http=debug,sqlx=warn"
 
+[dashboard]
+refresh_interval_secs = 30
+
 [routes]
 health = "/health"
 link_meta = "/api/link/{id}/meta"

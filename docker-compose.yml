@@ -3,9 +3,9 @@ services:
     image: postgres:16-alpine
     container_name: docsend_postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-docsend_user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-docsend_dev_pass}
-      POSTGRES_DB: ${POSTGRES_DB:-docsend}
+      POSTGRES_USER: docsend_user
+      POSTGRES_PASSWORD: docsend_dev_pass
+      POSTGRES_DB: docsend
     ports:
       - "5432:5432"
     volumes:
@@ -20,9 +20,9 @@ services:
     image: postgres:16-alpine
     container_name: docsend_postgres_test
     environment:
-      POSTGRES_USER: ${POSTGRES_TEST_USER:-docsend_user}
-      POSTGRES_PASSWORD: ${DOCSEND_TEST_USER_PASS:-docsend_test_pass}
-      POSTGRES_DB: ${POSTGRES_TEST_DB:-docsend_test}
+      POSTGRES_USER: docsend_user
+      POSTGRES_PASSWORD: docsend_test_pass
+      POSTGRES_DB: docsend_test
     ports:
       - "5433:5432"
     volumes:
