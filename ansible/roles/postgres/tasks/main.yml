@@ -1,57 +1,61 @@
 ---
-- name: Install PostgreSQL
+- name: Update apt cache and upgrade packages
+  apt:
+    upgrade: dist
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install Docker
   apt:
     name:
-      - postgresql
-      - postgresql-contrib
-      - python3-psycopg2
+      - docker.io
+      - python3-docker
     state: present
     update_cache: yes
 
-- name: Ensure PostgreSQL is running
-  systemd:
-    name: postgresql
+- name: Start Docker with systemctl
+  shell: |
+    systemctl daemon-reload
+    systemctl enable docker
+    systemctl start docker
+
+- name: Verify Docker running
+  shell: systemctl is-active docker
+  register: docker_status
+  until: docker_status.stdout == "active"
+  retries: 5
+  delay: 2
+
+- name: Add user to docker group
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+
+- name: Create PostgreSQL container
+  docker_container:
+    name: docsend_postgres
+    image: postgres:16-alpine
     state: started
-    enabled: yes
+    restart_policy: always
+    published_ports:
+      - "{{ db_port }}:5432"
+    env:
+      POSTGRES_USER: "{{ db_user }}"
+      POSTGRES_PASSWORD: "{{ db_password }}"
+      POSTGRES_DB: "{{ db_name }}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ db_user }} -d {{ db_name }}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-- name: Create database user
-  postgresql_user:
-    name: "{{ db_user }}"
-    password: "{{ db_password }}"
-    state: present
-  become_user: postgres
-
-- name: Create database
-  postgresql_db:
-    name: "{{ db_name }}"
-    owner: "{{ db_user }}"
-    state: present
-  become_user: postgres
-
-- name: Grant privileges to user
-  postgresql_privs:
-    database: "{{ db_name }}"
-    role: "{{ db_user }}"
-    privs: ALL
-    type: database
-  become_user: postgres
-
-- name: Copy migration file
-  copy:
-    src: "{{ playbook_dir }}/../migrations/001_init.sql"
-    dest: /tmp/001_init.sql
-    mode: '0644'
-
-- name: Run database migrations
-  postgresql_query:
-    db: "{{ db_name }}"
-    login_user: "{{ db_user }}"
-    login_password: "{{ db_password }}"
-    path_to_script: /tmp/001_init.sql
-  become_user: postgres
-  ignore_errors: yes
-
-- name: Remove migration file
-  file:
-    path: /tmp/001_init.sql
-    state: absent
+- name: Wait for PostgreSQL
+  command: docker exec docsend_postgres pg_isready -U {{ db_user }} -d {{ db_name }}
+  register: pg_ready
+  until: pg_ready.rc == 0
+  retries: 10
+  delay: 3
+  changed_when: false
