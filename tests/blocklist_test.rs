@@ -14,7 +14,7 @@ fn test_blocklist_loads() {
     println!("============================================================");
 
     let blocklist = blocklist::load_blocklist();
-    
+
     println!("  Loaded {} domains", blocklist.len());
     assert!(blocklist.len() > 3000, "Expected 3000+ domains, got {}", blocklist.len());
     println!("  ✓ Blocklist has {} domains", blocklist.len());
@@ -40,8 +40,8 @@ fn test_extract_domain() {
     assert_eq!(blocklist::extract_domain("user@sub.example.com"), Some("sub.example.com"));
     assert_eq!(blocklist::extract_domain("user.name@company.co.uk"), Some("company.co.uk"));
     assert_eq!(blocklist::extract_domain("invalid"), None);
-    assert_eq!(blocklist::extract_domain("also@invalid@email"), Some("invalid@email")); // weird but expected
-    
+    assert_eq!(blocklist::extract_domain("also@invalid@email"), Some("invalid@email")); // takes part after first @
+
     println!("  ✓ Domain extraction works");
     println!("\n  ✓ Extract domain test passed\n");
 }
@@ -189,7 +189,7 @@ async fn test_full_email_validation() {
         .expect("Failed to add");
 
     // Test validate_email function
-    
+
     // Invalid format
     let result = blocklist::validate_email(pool, "invalid").await;
     assert!(matches!(result, Err(blocklist::EmailValidationError::InvalidFormat)));

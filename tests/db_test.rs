@@ -20,6 +20,12 @@ use sqlx::Row;
 
 #[tokio::test]
 async fn test_production_connection() {
+    // Skip in CI
+    if std::env::var("CI").is_ok() {
+        println!("Skipping production DB test in CI");
+        return;
+    }
+
     use sqlx::postgres::PgPoolOptions;
     use std::time::Duration;
 
@@ -31,9 +37,9 @@ async fn test_production_connection() {
     let password = std::fs::read_to_string(".env")
         .expect(".env not found")
         .lines()
-        .find(|l| l.starts_with("DOCSEND_USER_PASS="))
-        .map(|l| l.trim_start_matches("DOCSEND_USER_PASS=").to_string())
-        .expect("DOCSEND_USER_PASS not in .env");
+        .find(|l| l.starts_with("DB_PASSWORD="))
+        .map(|l| l.trim_start_matches("DB_PASSWORD=").to_string())
+        .expect("DB_PASSWORD not in .env");
 
     let database_url = format!(
         "postgres://docsend_user:{}@localhost:5432/docsend",
@@ -92,7 +98,7 @@ async fn test_db_setup_migrate_teardown() {
     assert!(tables.contains(&"access_tokens".to_string()));
     assert!(tables.contains(&"views".to_string()));
     assert!(tables.contains(&"custom_blocklist".to_string()));
-    
+
     println!("  ✓ All 6 tables verified\n");
 }
 
@@ -103,7 +109,7 @@ async fn test_db_crud() {
     println!("============================================================");
 
     let db = TestDb::new().await;
-    
+
     // Create document
     let doc_id = uuid::Uuid::new_v4();
     sqlx::query("INSERT INTO documents (id, name, filename, storage_path, size_bytes) VALUES ($1, $2, $3, $4, $5)")
@@ -116,7 +122,7 @@ async fn test_db_crud() {
         .await
         .unwrap();
     println!("  ✓ Create document");
-    
+
     // Read document
     let row: (String,) = sqlx::query_as("SELECT name FROM documents WHERE id = $1")
         .bind(doc_id)
@@ -125,7 +131,7 @@ async fn test_db_crud() {
         .unwrap();
     assert_eq!(row.0, "Test Doc");
     println!("  ✓ Read document");
-    
+
     // Update document
     sqlx::query("UPDATE documents SET name = $1 WHERE id = $2")
         .bind("Updated Doc")
@@ -140,7 +146,7 @@ async fn test_db_crud() {
         .unwrap();
     assert_eq!(row.0, "Updated Doc");
     println!("  ✓ Update document");
-    
+
     // Delete document
     sqlx::query("DELETE FROM documents WHERE id = $1")
         .bind(doc_id)
@@ -154,7 +160,7 @@ async fn test_db_crud() {
         .unwrap();
     assert_eq!(count.0, 0);
     println!("  ✓ Delete document");
-    
+
     println!("\n  ✓ CRUD test passed\n");
 }
 
@@ -231,9 +237,9 @@ async fn test_db_full_workflow() {
 
     // Query chain
     let row = sqlx::query(
-        "SELECT d.name, l.short_code, v.duration_secs FROM views v 
-         JOIN access_tokens at ON v.access_token_id = at.id 
-         JOIN links l ON at.link_id = l.id 
+        "SELECT d.name, l.short_code, v.duration_secs FROM views v
+         JOIN access_tokens at ON v.access_token_id = at.id
+         JOIN links l ON at.link_id = l.id
          JOIN documents d ON l.document_id = d.id"
     )
         .fetch_one(&db.pool)
