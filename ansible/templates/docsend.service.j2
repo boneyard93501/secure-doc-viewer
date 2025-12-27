@@ -1,7 +1,7 @@
 [Unit]
 Description=Docsend Application
-After=network.target postgresql.service
-Requires=postgresql.service
+After=network.target docker.service
+Requires=docker.service
 
 [Service]
 Type=simple

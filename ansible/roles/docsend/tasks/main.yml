@@ -33,19 +33,12 @@
   notify: restart docsend
 
 - name: Copy static files
-  synchronize:
+  copy:
     src: "{{ playbook_dir }}/../static/"
     dest: "{{ app_dir }}/static/"
-    delete: yes
-    recursive: yes
-  delegate_to: localhost
-
-- name: Set ownership on static files
-  file:
-    path: "{{ app_dir }}/static"
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
-    recurse: yes
+    mode: '0755'
 
 - name: Copy blocklist
   copy:
@@ -54,6 +47,21 @@
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
     mode: '0644'
+
+- name: Stop old docsend service if exists
+  systemd:
+    name: docsend
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove old systemd service file
+  file:
+    path: /etc/systemd/system/docsend.service
+    state: absent
+
+- name: Reload systemd after cleanup
+  systemd:
+    daemon_reload: yes
 
 - name: Deploy config.toml
   template:
