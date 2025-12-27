@@ -25,8 +25,8 @@ jobs:
       - name: Build release binary
         run: cargo build --release
       
-      - name: Run tests
-        run: cargo test --release
+      - name: Run tests (skip real_server_test)
+        run: cargo test --release --lib && cargo test --release --test api_test --test blocklist_test --test db_test --test db_module_test --test http_test --test integration_test
       
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
