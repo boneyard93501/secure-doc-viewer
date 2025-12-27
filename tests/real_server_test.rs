@@ -1,5 +1,5 @@
 //! Real Integration Tests - Spawns Actual Binary
-//! 
+//!
 //! These tests:
 //! 1. Start real PostgreSQL via testcontainers
 //! 2. Spawn the actual docsend binary as a subprocess
@@ -30,74 +30,39 @@ impl TestServer {
     async fn start() -> Self {
         // Start ephemeral PostgreSQL
         let test_db = TestDb::new().await;
+
+        // Read the real config.toml to get all required fields
+        let real_config = std::fs::read_to_string("config.toml").expect("config.toml not found");
         
-        // Create test config file
-        let config_content = format!(r#"
-[server]
-host = "127.0.0.1"
-port = 19080
-static_dir = "static"
-upload_dir = "/tmp/docsend_test_uploads"
+        // Replace database section with test DB settings
+        let test_config = real_config
+            .lines()
+            .map(|line| {
+                if line.starts_with("host = ") && real_config[..real_config.find(line).unwrap()].ends_with("[database]\n") {
+                    format!("host = \"{}\"", test_db.host)
+                } else if line.starts_with("port = ") && real_config[..real_config.find(line).unwrap()].contains("[database]") {
+                    format!("port = {}", test_db.port)
+                } else if line.starts_with("user = ") {
+                    "user = \"postgres\"".to_string()
+                } else if line.starts_with("database = ") {
+                    "database = \"postgres\"".to_string()
+                } else if line.starts_with("port = 8080") {
+                    "port = 19080".to_string()
+                } else if line.starts_with("upload_dir = ") {
+                    "upload_dir = \"/tmp/docsend_test_uploads\"".to_string()
+                } else {
+                    line.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
 
-[database]
-host = "{}"
-port = {}
-user = "postgres"
-database = "postgres"
-max_connections = 5
-
-[auth]
-admin_token_ttl_secs = 3600
-access_token_ttl_secs = 3600
-
-[email]
-from_email = "test@test.com"
-from_name = "Test"
-verification_url_base = "http://localhost:19080/verify"
-
-[branding]
-owner_name = "Test Company"
-document_title_default = "Document"
-
-[blocklist]
-file_path = "data/blocklist.txt"
-
-[rate_limit]
-email_send_per_hour = 100
-token_attempts_per_hour = 100
-
-[logging]
-level = "info"
-
-[routes]
-health = "/health"
-link_meta = "/api/link/{{short_code}}/meta"
-token_meta = "/api/token/{{token}}/meta"
-verify = "/api/verify"
-document = "/api/document/{{token}}"
-track = "/api/track"
-admin_login = "/api/admin/login"
-admin_password = "/api/admin/password"
-admin_documents = "/api/admin/documents"
-admin_links = "/api/admin/links"
-admin_views = "/api/admin/views"
-admin_blocklist = "/api/admin/blocklist"
-admin_stats = "/api/admin/stats"
-
-[messages]
-email_sent = "Check your email"
-domain_blocked = "Domain blocked"
-link_expired = "Link expired"
-link_revoked = "Link revoked"
-invalid_token = "Invalid token"
-"#, test_db.host, test_db.port);
-        
         let config_path = "/tmp/docsend_test_config.toml";
-        std::fs::write(config_path, config_content).expect("Failed to write test config");
-        
+        std::fs::write(config_path, test_config).expect("Failed to write test config");
+
         // Create upload dir
         let _ = std::fs::create_dir_all("/tmp/docsend_test_uploads");
-        
+
         // Build the binary first
         println!("  → Building binary...");
         let build_status = Command::new("cargo")
@@ -106,25 +71,26 @@ invalid_token = "Invalid token"
             .stderr(Stdio::null())
             .status()
             .expect("Failed to build");
-        
+
         if !build_status.success() {
             panic!("Failed to build docsend binary");
         }
-        
+
         // Spawn the actual binary
         println!("  → Starting server...");
         let child = Command::new("cargo")
             .args(["run", "--bin", "docsend"])
             .env("CONFIG_PATH", config_path)
             .env("DB_PASSWORD", "postgres")
-            .env("JWT_SECRET", "test_jwt_secret_key_12345")
+            .env("JWT_SECRET", "test_jwt_secret_key_for_testing_12345")
+            .env("RESEND_API_KEY", "test_resend_api_key")
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
             .expect("Failed to spawn server");
-        
+
         let base_url = "http://127.0.0.1:19080".to_string();
-        
+
         // Poll health endpoint until server is ready
         let client = Client::new();
         for i in 0..50 {
@@ -132,7 +98,7 @@ invalid_token = "Invalid token"
             if let Ok(resp) = client.get(format!("{}/health", base_url))
                 .timeout(Duration::from_millis(500))
                 .send()
-                .await 
+                .await
             {
                 if resp.status().is_success() {
                     println!("  ✓ Server ready at {} (took {}ms)", base_url, (i + 1) * 200);
@@ -140,10 +106,10 @@ invalid_token = "Invalid token"
                 }
             }
         }
-        
+
         panic!("Server failed to start after 10 seconds");
     }
-    
+
     fn pool(&self) -> &sqlx::PgPool {
         &self.test_db.pool
     }
@@ -172,13 +138,13 @@ fn hash_password(password: &str) -> String {
 async fn test_real_server_health() {
     println!("\n=== test_real_server_health ===");
     let server = TestServer::start().await;
-    
+
     let client = Client::new();
     let resp = client.get(format!("{}/health", server.base_url))
         .send()
         .await
         .unwrap();
-    
+
     assert_eq!(resp.status(), 200);
     let body: Value = resp.json().await.unwrap();
     assert_eq!(body["status"], "ok");
@@ -189,15 +155,15 @@ async fn test_real_server_health() {
 async fn test_real_server_admin_login() {
     println!("\n=== test_real_server_admin_login ===");
     let server = TestServer::start().await;
-    
+
     // Create admin in database
     let password = "test_password_123";
     let hash = hash_password(password);
     db::create_admin(server.pool(), "admin@test.com", &hash).await.unwrap();
     println!("  ✓ Created admin in DB");
-    
+
     let client = Client::new();
-    
+
     // Test successful login
     let resp = client.post(format!("{}/api/admin/login", server.base_url))
         .json(&json!({
@@ -207,12 +173,12 @@ async fn test_real_server_admin_login() {
         .send()
         .await
         .unwrap();
-    
+
     assert_eq!(resp.status(), 200);
     let body: Value = resp.json().await.unwrap();
     assert!(body["token"].as_str().is_some());
     println!("  ✓ POST /api/admin/login returns token");
-    
+
     // Test failed login
     let resp = client.post(format!("{}/api/admin/login", server.base_url))
         .json(&json!({
@@ -222,7 +188,7 @@ async fn test_real_server_admin_login() {
         .send()
         .await
         .unwrap();
-    
+
     assert_eq!(resp.status(), 401);
     println!("  ✓ POST /api/admin/login with wrong password returns 401");
 }
@@ -231,12 +197,12 @@ async fn test_real_server_admin_login() {
 async fn test_real_server_documents_crud() {
     println!("\n=== test_real_server_documents_crud ===");
     let server = TestServer::start().await;
-    
+
     // Create admin and login
     let password = "test_password_123";
     let hash = hash_password(password);
     db::create_admin(server.pool(), "admin@test.com", &hash).await.unwrap();
-    
+
     let client = Client::new();
     let resp = client.post(format!("{}/api/admin/login", server.base_url))
         .json(&json!({"email": "admin@test.com", "password": password}))
@@ -245,7 +211,7 @@ async fn test_real_server_documents_crud() {
         .unwrap();
     let token = resp.json::<Value>().await.unwrap()["token"].as_str().unwrap().to_string();
     println!("  ✓ Logged in");
-    
+
     // List documents (empty)
     let resp = client.get(format!("{}/api/admin/documents", server.base_url))
         .header("Authorization", format!("Bearer {}", token))
@@ -256,14 +222,14 @@ async fn test_real_server_documents_crud() {
     let docs: Vec<Value> = resp.json().await.unwrap();
     assert_eq!(docs.len(), 0);
     println!("  ✓ GET /api/admin/documents returns empty list");
-    
+
     // Upload document
     let form = reqwest::multipart::Form::new()
         .text("name", "Test Document")
         .part("file", reqwest::multipart::Part::bytes(b"PDF content here".to_vec())
             .file_name("test.pdf")
             .mime_str("application/pdf").unwrap());
-    
+
     let resp = client.post(format!("{}/api/admin/documents", server.base_url))
         .header("Authorization", format!("Bearer {}", token))
         .multipart(form)
@@ -274,7 +240,7 @@ async fn test_real_server_documents_crud() {
     let doc: Value = resp.json().await.unwrap();
     let doc_id = doc["id"].as_str().unwrap();
     println!("  ✓ POST /api/admin/documents uploads document: {}", doc_id);
-    
+
     // List documents (one)
     let resp = client.get(format!("{}/api/admin/documents", server.base_url))
         .header("Authorization", format!("Bearer {}", token))
@@ -284,7 +250,7 @@ async fn test_real_server_documents_crud() {
     let docs: Vec<Value> = resp.json().await.unwrap();
     assert_eq!(docs.len(), 1);
     println!("  ✓ GET /api/admin/documents returns 1 document");
-    
+
     // Delete document
     let resp = client.delete(format!("{}/api/admin/documents/{}", server.base_url, doc_id))
         .header("Authorization", format!("Bearer {}", token))
@@ -299,13 +265,13 @@ async fn test_real_server_documents_crud() {
 async fn test_real_server_links_crud() {
     println!("\n=== test_real_server_links_crud ===");
     let server = TestServer::start().await;
-    
+
     // Setup
     let password = "test_password_123";
     let hash = hash_password(password);
     db::create_admin(server.pool(), "admin@test.com", &hash).await.unwrap();
     let doc = db::create_document(server.pool(), "Test Doc", "test.pdf", "/test.pdf", 100).await.unwrap();
-    
+
     let client = Client::new();
     let resp = client.post(format!("{}/api/admin/login", server.base_url))
         .json(&json!({"email": "admin@test.com", "password": password}))
@@ -314,7 +280,7 @@ async fn test_real_server_links_crud() {
         .unwrap();
     let token = resp.json::<Value>().await.unwrap()["token"].as_str().unwrap().to_string();
     println!("  ✓ Logged in");
-    
+
     // Create link
     let resp = client.post(format!("{}/api/admin/links", server.base_url))
         .header("Authorization", format!("Bearer {}", token))
@@ -329,7 +295,7 @@ async fn test_real_server_links_crud() {
     let link: Value = resp.json().await.unwrap();
     let link_id = link["id"].as_str().unwrap();
     println!("  ✓ POST /api/admin/links creates link: {}", link_id);
-    
+
     // List links
     let resp = client.get(format!("{}/api/admin/links", server.base_url))
         .header("Authorization", format!("Bearer {}", token))
@@ -339,7 +305,7 @@ async fn test_real_server_links_crud() {
     let links: Vec<Value> = resp.json().await.unwrap();
     assert_eq!(links.len(), 1);
     println!("  ✓ GET /api/admin/links returns 1 link");
-    
+
     // Revoke link
     let resp = client.post(format!("{}/api/admin/links/{}/revoke", server.base_url, link_id))
         .header("Authorization", format!("Bearer {}", token))
@@ -354,12 +320,12 @@ async fn test_real_server_links_crud() {
 async fn test_real_server_stats() {
     println!("\n=== test_real_server_stats ===");
     let server = TestServer::start().await;
-    
+
     // Setup
     let password = "test_password_123";
     let hash = hash_password(password);
     db::create_admin(server.pool(), "admin@test.com", &hash).await.unwrap();
-    
+
     let client = Client::new();
     let resp = client.post(format!("{}/api/admin/login", server.base_url))
         .json(&json!({"email": "admin@test.com", "password": password}))
@@ -367,7 +333,7 @@ async fn test_real_server_stats() {
         .await
         .unwrap();
     let token = resp.json::<Value>().await.unwrap()["token"].as_str().unwrap().to_string();
-    
+
     // Get stats (empty)
     let resp = client.get(format!("{}/api/admin/stats", server.base_url))
         .header("Authorization", format!("Bearer {}", token))
@@ -378,10 +344,10 @@ async fn test_real_server_stats() {
     let stats: Value = resp.json().await.unwrap();
     assert_eq!(stats["total_docs"], 0);
     println!("  ✓ GET /api/admin/stats returns zeros");
-    
+
     // Add document
     db::create_document(server.pool(), "Test", "test.pdf", "/test.pdf", 100).await.unwrap();
-    
+
     // Get stats again
     let resp = client.get(format!("{}/api/admin/stats", server.base_url))
         .header("Authorization", format!("Bearer {}", token))
@@ -397,12 +363,12 @@ async fn test_real_server_stats() {
 async fn test_real_server_views_endpoint() {
     println!("\n=== test_real_server_views_endpoint ===");
     let server = TestServer::start().await;
-    
+
     // Setup
     let password = "test_password_123";
     let hash = hash_password(password);
     db::create_admin(server.pool(), "admin@test.com", &hash).await.unwrap();
-    
+
     let client = Client::new();
     let resp = client.post(format!("{}/api/admin/login", server.base_url))
         .json(&json!({"email": "admin@test.com", "password": password}))
@@ -410,7 +376,7 @@ async fn test_real_server_views_endpoint() {
         .await
         .unwrap();
     let token = resp.json::<Value>().await.unwrap()["token"].as_str().unwrap().to_string();
-    
+
     // List views (empty)
     let resp = client.get(format!("{}/api/admin/views", server.base_url))
         .header("Authorization", format!("Bearer {}", token))
@@ -427,9 +393,9 @@ async fn test_real_server_views_endpoint() {
 async fn test_real_server_admin_login_invalid() {
     println!("\n=== test_real_server_admin_login_invalid ===");
     let server = TestServer::start().await;
-    
+
     let client = Client::new();
-    
+
     // Non-existent user
     let resp = client.post(format!("{}/api/admin/login", server.base_url))
         .json(&json!({
@@ -441,12 +407,12 @@ async fn test_real_server_admin_login_invalid() {
         .unwrap();
     assert_eq!(resp.status(), 401);
     println!("  ✓ POST /api/admin/login with non-existent user returns 401");
-    
+
     // Create admin but use wrong password
     let password = "correct_password";
     let hash = hash_password(password);
     db::create_admin(server.pool(), "admin@test.com", &hash).await.unwrap();
-    
+
     let resp = client.post(format!("{}/api/admin/login", server.base_url))
         .json(&json!({
             "email": "admin@test.com",
@@ -463,12 +429,12 @@ async fn test_real_server_admin_login_invalid() {
 async fn test_real_server_blocklist_crud() {
     println!("\n=== test_real_server_blocklist_crud ===");
     let server = TestServer::start().await;
-    
+
     // Setup
     let password = "test_password_123";
     let hash = hash_password(password);
     db::create_admin(server.pool(), "admin@test.com", &hash).await.unwrap();
-    
+
     let client = Client::new();
     let resp = client.post(format!("{}/api/admin/login", server.base_url))
         .json(&json!({"email": "admin@test.com", "password": password}))
@@ -476,7 +442,7 @@ async fn test_real_server_blocklist_crud() {
         .await
         .unwrap();
     let token = resp.json::<Value>().await.unwrap()["token"].as_str().unwrap().to_string();
-    
+
     // Add to blocklist
     let resp = client.post(format!("{}/api/admin/blocklist", server.base_url))
         .header("Authorization", format!("Bearer {}", token))
@@ -486,7 +452,7 @@ async fn test_real_server_blocklist_crud() {
         .unwrap();
     assert_eq!(resp.status(), 200);
     println!("  ✓ POST /api/admin/blocklist adds domain");
-    
+
     // List blocklist
     let resp = client.get(format!("{}/api/admin/blocklist", server.base_url))
         .header("Authorization", format!("Bearer {}", token))
@@ -496,7 +462,7 @@ async fn test_real_server_blocklist_crud() {
     let entries: Vec<Value> = resp.json().await.unwrap();
     assert_eq!(entries.len(), 1);
     println!("  ✓ GET /api/admin/blocklist returns 1 entry");
-    
+
     // Remove from blocklist
     let resp = client.delete(format!("{}/api/admin/blocklist/blocked.com", server.base_url))
         .header("Authorization", format!("Bearer {}", token))
@@ -511,9 +477,9 @@ async fn test_real_server_blocklist_crud() {
 async fn test_real_server_unauthorized() {
     println!("\n=== test_real_server_unauthorized ===");
     let server = TestServer::start().await;
-    
+
     let client = Client::new();
-    
+
     // No auth header
     let resp = client.get(format!("{}/api/admin/documents", server.base_url))
         .send()
@@ -521,7 +487,7 @@ async fn test_real_server_unauthorized() {
         .unwrap();
     assert_eq!(resp.status(), 401);
     println!("  ✓ GET /api/admin/documents without auth returns 401");
-    
+
     // Bad token
     let resp = client.get(format!("{}/api/admin/documents", server.base_url))
         .header("Authorization", "Bearer invalid_token")
@@ -536,14 +502,14 @@ async fn test_real_server_unauthorized() {
 async fn test_real_server_full_workflow() {
     println!("\n=== test_real_server_full_workflow ===");
     let server = TestServer::start().await;
-    
+
     // Setup admin
     let password = "admin_password_123";
     let hash = hash_password(password);
     db::create_admin(server.pool(), "admin@company.com", &hash).await.unwrap();
-    
+
     let client = Client::new();
-    
+
     println!("  Step 1: Admin logs in");
     let resp = client.post(format!("{}/api/admin/login", server.base_url))
         .json(&json!({"email": "admin@company.com", "password": password}))
@@ -553,14 +519,14 @@ async fn test_real_server_full_workflow() {
     assert_eq!(resp.status(), 200);
     let token = resp.json::<Value>().await.unwrap()["token"].as_str().unwrap().to_string();
     println!("    ✓ Got auth token");
-    
+
     println!("  Step 2: Admin uploads pitch deck");
     let form = reqwest::multipart::Form::new()
         .text("name", "Q4 Pitch Deck")
         .part("file", reqwest::multipart::Part::bytes(b"PDF content".to_vec())
             .file_name("pitch.pdf")
             .mime_str("application/pdf").unwrap());
-    
+
     let resp = client.post(format!("{}/api/admin/documents", server.base_url))
         .header("Authorization", format!("Bearer {}", token))
         .multipart(form)
@@ -571,7 +537,7 @@ async fn test_real_server_full_workflow() {
     let doc: Value = resp.json().await.unwrap();
     let doc_id = doc["id"].as_str().unwrap();
     println!("    ✓ Uploaded document: {}", doc_id);
-    
+
     println!("  Step 3: Admin creates shareable link");
     let resp = client.post(format!("{}/api/admin/links", server.base_url))
         .header("Authorization", format!("Bearer {}", token))
@@ -587,7 +553,7 @@ async fn test_real_server_full_workflow() {
     let link_id = link["id"].as_str().unwrap();
     let short_code = link["short_code"].as_str().unwrap();
     println!("    ✓ Created link: /d/{}", short_code);
-    
+
     println!("  Step 4: Admin checks stats");
     let resp = client.get(format!("{}/api/admin/stats", server.base_url))
         .header("Authorization", format!("Bearer {}", token))
@@ -598,7 +564,7 @@ async fn test_real_server_full_workflow() {
     assert_eq!(stats["total_docs"], 1);
     assert_eq!(stats["total_links"], 1);
     println!("    ✓ Stats: {} doc, {} link", stats["total_docs"], stats["total_links"]);
-    
+
     println!("  Step 5: Admin blocks competitor domain");
     let resp = client.post(format!("{}/api/admin/blocklist", server.base_url))
         .header("Authorization", format!("Bearer {}", token))
@@ -608,7 +574,7 @@ async fn test_real_server_full_workflow() {
         .unwrap();
     assert_eq!(resp.status(), 200);
     println!("    ✓ Blocked competitor.com");
-    
+
     println!("  Step 6: Admin revokes link");
     let resp = client.post(format!("{}/api/admin/links/{}/revoke", server.base_url, link_id))
         .header("Authorization", format!("Bearer {}", token))
@@ -617,6 +583,6 @@ async fn test_real_server_full_workflow() {
         .unwrap();
     assert_eq!(resp.status(), 200);
     println!("    ✓ Link revoked");
-    
+
     println!("\n  ✓ Full workflow completed with REAL server!\n");
 }

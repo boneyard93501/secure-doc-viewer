@@ -18,7 +18,7 @@ pub fn load_blocklist() -> &'static HashSet<String> {
 
 /// Extract domain from email address
 pub fn extract_domain(email: &str) -> Option<&str> {
-    email.split('@').nth(1)
+    email.split_once('@').map(|(_, domain)| domain)
 }
 
 /// Check if an email domain is in the static blocklist
@@ -68,10 +68,10 @@ pub fn is_valid_email_format(email: &str) -> bool {
     }
     let local = parts[0];
     let domain = parts[1];
-    
+
     // Basic validation
-    !local.is_empty() 
-        && !domain.is_empty() 
+    !local.is_empty()
+        && !domain.is_empty()
         && domain.contains('.')
         && !domain.starts_with('.')
         && !domain.ends_with('.')
@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn test_blocked_domains() {
         load_blocklist(); // Initialize
-        
+
         // Common free email providers should be blocked
         assert!(is_blocked_email("user@gmail.com"));
         assert!(is_blocked_email("user@yahoo.com"));
@@ -147,11 +147,11 @@ mod tests {
         assert!(is_blocked_email("user@outlook.com"));
         assert!(is_blocked_email("user@protonmail.com"));
         assert!(is_blocked_email("user@tuta.io"));
-        
+
         // Case insensitive
         assert!(is_blocked_email("user@GMAIL.COM"));
         assert!(is_blocked_email("user@Gmail.Com"));
-        
+
         // Non-blocked domains
         assert!(!is_blocked_email("user@company.com"));
         assert!(!is_blocked_email("user@anthropic.com"));
