@@ -5,6 +5,8 @@ on:
     branches: [devops]
 
 env:
+  VM_HOST: ${{ vars.VM_HOST }}
+  VM_USER: ${{ vars.VM_USER }}
   DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
   JWT_SECRET: ${{ secrets.JWT_SECRET }}
   RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
@@ -39,7 +41,7 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ vars.VM_HOST }} >> ~/.ssh/known_hosts
       
       - name: Install Ansible
         run: |
@@ -65,3 +67,4 @@ jobs:
             -e "resend_api_key=$RESEND_API_KEY"
         env:
           ANSIBLE_HOST_KEY_CHECKING: False
+          SSH_KEY_PATH: ~/.ssh/id_rsa
