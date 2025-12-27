@@ -10,6 +10,9 @@ Group={{ app_user }}
 WorkingDirectory={{ app_dir }}
 Environment="DOCSEND_CONFIG={{ config_dir }}/config.toml"
 Environment="RUST_LOG={{ lookup('env', 'RUST_LOG') | default('info', true) }}"
+Environment="DB_PASSWORD={{ db_password }}"
+Environment="JWT_SECRET={{ jwt_secret }}"
+Environment="RESEND_API_KEY={{ resend_api_key }}"
 ExecStart={{ app_dir }}/bin/docsend
 Restart=always
 RestartSec=5

@@ -36,6 +36,12 @@ jobs:
           name: docsend-binary
           path: target/release/docsend
           
+      - name: Upload admin binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docsend-admin-binary
+          path: target/release/docsend-admin
+          
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -54,17 +60,30 @@ jobs:
           name: docsend-binary
           path: ./artifact
       
-      - name: Make binary executable
-        run: chmod +x ./artifact/docsend
+      - name: Download admin binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docsend-admin-binary
+          path: ./artifact
+      
+      - name: Make binaries executable
+        run: chmod +x ./artifact/docsend ./artifact/docsend-admin
       
       - name: Run Ansible deployment
         run: |
           cd ansible
           ansible-playbook -i inventory.yml deploy.yml \
+            -e "ansible_host=$VM_HOST" \
+            -e "ansible_user=$VM_USER" \
+            -e "ansible_ssh_private_key_file=~/.ssh/id_rsa" \
             -e "docsend_binary_path=../artifact/docsend" \
+            -e "docsend_admin_binary_path=../artifact/docsend-admin" \
             -e "db_password=$DB_PASSWORD" \
             -e "jwt_secret=$JWT_SECRET" \
-            -e "resend_api_key=$RESEND_API_KEY"
+            -e "resend_api_key=$RESEND_API_KEY" \
+            -e "admin_email=$ADMIN_EMAIL" \
+            -e "admin_password=$ADMIN_PASSWORD"
         env:
           ANSIBLE_HOST_KEY_CHECKING: False
-          SSH_KEY_PATH: ~/.ssh/id_rsa
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}

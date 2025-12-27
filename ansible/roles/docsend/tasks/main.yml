@@ -18,6 +18,7 @@
     - "{{ app_dir }}/bin"
     - "{{ app_dir }}/static"
     - "{{ app_dir }}/data"
+    - "{{ app_dir }}/migrations"
     - "{{ config_dir }}"
     - "{{ data_dir }}"
     - "{{ data_dir }}/uploads"
@@ -31,6 +32,15 @@
     group: "{{ app_user }}"
     mode: '0755'
   notify: restart docsend
+
+- name: Copy admin binary
+  copy:
+    src: "{{ docsend_admin_binary_path }}"
+    dest: "{{ app_dir }}/bin/docsend-admin"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0755'
+  when: docsend_admin_binary_path is defined
 
 - name: Copy static files
   copy:
@@ -47,6 +57,38 @@
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
     mode: '0644'
+
+- name: Copy migrations
+  copy:
+    src: "{{ playbook_dir }}/../migrations/"
+    dest: "{{ app_dir }}/migrations/"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0644'
+
+- name: Run database migrations
+  shell: cat {{ app_dir }}/migrations/001_init.sql | docker exec -i docsend_postgres psql -U {{ db_user }} -d {{ db_name }}
+  ignore_errors: yes
+  register: migration_result
+
+- name: Show migration result
+  debug:
+    var: migration_result
+  when: migration_result is defined
+
+- name: Create admin user
+  shell: |
+    docker exec docsend_postgres psql -U {{ db_user }} -d {{ db_name }} -c "
+    INSERT INTO admins (email, password_hash, password_changed_at, created_at)
+    VALUES (
+      '{{ admin_email }}',
+      crypt('{{ admin_password }}', gen_salt('bf')),
+      now(),
+      now()
+    )
+    ON CONFLICT (email) DO NOTHING;"
+  when: admin_email is defined and admin_password is defined
+  no_log: true
 
 - name: Stop old docsend service if exists
   systemd:

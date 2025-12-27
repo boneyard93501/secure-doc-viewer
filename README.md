@@ -187,3 +187,90 @@ invalid_token = "Invalid or expired token"
 ## License
 
 Proprietary - Better Half
+
+## Deployment
+
+The project includes automated CI/CD deployment using GitHub Actions and Ansible.
+
+### Production Setup
+
+**Prerequisites:**
+- Ubuntu 24 server with SSH access
+- Domain name pointing to server
+- GitHub repository with Actions enabled
+
+**GitHub Secrets (required):**
+```
+Settings → Secrets and variables → Actions → Secrets:
+  - SSH_PRIVATE_KEY   # SSH key for server access
+  - DB_PASSWORD       # PostgreSQL password
+  - JWT_SECRET        # JWT signing secret (32+ bytes)
+  - RESEND_API_KEY    # Resend API key
+  - ADMIN_EMAIL       # Initial admin email
+  - ADMIN_PASSWORD    # Initial admin password
+```
+
+**GitHub Variables (required):**
+```
+Settings → Secrets and variables → Actions → Variables:
+  - VM_HOST           # Server IP address
+  - VM_USER           # SSH user (e.g., ubuntu)
+```
+
+**Deployment Process:**
+
+1. Push to `devops` branch triggers GitHub Actions
+2. Builds `docsend` and `docsend-admin` binaries
+3. Runs tests
+4. Ansible deploys to production server:
+   - Installs Docker + PostgreSQL container
+   - Installs Caddy (auto HTTPS via Let's Encrypt)
+   - Deploys application binary and admin utility
+   - Copies static files, migrations, blocklist
+   - Runs database migrations
+   - Creates admin user (if first deploy)
+   - Configures systemd service
+   - Configures UFW firewall
+
+**Production URL:** https://your-domain.com
+
+**Tech Stack:**
+- **Server**: Ubuntu 24
+- **Reverse Proxy**: Caddy (auto HTTPS)
+- **Database**: PostgreSQL in Docker
+- **Service Manager**: systemd
+- **Firewall**: UFW
+
+**Manual Deployment:**
+
+For local testing before pushing to CI:
+
+```bash
+# Update config
+vim config.toml  # Set VM IP, SSH key path
+
+# Test deployment
+./test-ansible.sh
+```
+
+**Production Maintenance:**
+
+```bash
+# SSH to server
+ssh -i ~/.ssh/your-key user@server
+
+# Check service status
+sudo systemctl status docsend
+sudo systemctl status caddy
+
+# View logs
+sudo journalctl -u docsend -f
+sudo journalctl -u caddy -f
+
+# Check database
+sudo docker exec -it docsend_postgres psql -U docsend_user -d docsend
+
+# Create additional admin users
+cd /opt/docsend
+sudo -u docsend ./bin/docsend-admin
+```
