@@ -184,6 +184,3 @@ invalid_token = "Invalid or expired token"
 7. System tracks: email, IP, duration, pages viewed
 8. Admin sees analytics in dashboard (auto-refreshes every 30s)
 
-## License
-
-Proprietary - Better Half
